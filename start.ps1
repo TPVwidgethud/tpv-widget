@@ -46,7 +46,9 @@ function Update-Widget {
     try {
         $zip = Join-Path $work 'update.zip'
         Invoke-WebRequest -Uri $zipAsset.browser_download_url -OutFile $zip -UseBasicParsing -Headers $headers -TimeoutSec 60
-        $expected = ((Invoke-WebRequest -Uri $hashAsset.browser_download_url -UseBasicParsing -Headers $headers -TimeoutSec 20).Content | ForEach-Object { if ($_ -is [byte[]]) { [Text.Encoding]::ASCII.GetString($_) } else { $_ } }).Trim().Split(' ')[0].ToLowerInvariant()
+        $hashFile = Join-Path $work 'update.zip.sha256'
+        Invoke-WebRequest -Uri $hashAsset.browser_download_url -OutFile $hashFile -UseBasicParsing -Headers $headers -TimeoutSec 20
+        $expected = ([IO.File]::ReadAllText($hashFile).Trim() -split '\s+')[0].ToLowerInvariant()
         $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($expected -ne $actual) { Write-UpdateLog "version $latest checksum mismatch: not installed"; return }
         Expand-Archive -LiteralPath $zip -DestinationPath $work
