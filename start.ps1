@@ -14,8 +14,8 @@ if (-not (Test-Path -LiteralPath $overlay)) {
 # Files unzipped from a download are marked as coming from the internet; this folder is trusted from now on.
 Get-ChildItem -LiteralPath $folder -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
 
-# Asks before installing: a small window of its own, on top and active, that returns $true only on "Install".
-function Request-UpdateConsent([string]$Text) {
+# Asks before installing: a window of its own, on top and active, that shows what is new and returns $true only on "Install".
+function Request-UpdateConsent([string]$Intro, [string]$News) {
     $form = New-Object Windows.Forms.Form
     $form.Text = 'TPV Widget update'
     $form.FormBorderStyle = 'FixedDialog'; $form.MaximizeBox = $false; $form.MinimizeBox = $false
@@ -26,7 +26,22 @@ function Request-UpdateConsent([string]$Text) {
     $layout.FlowDirection = 'TopDown'; $layout.AutoSize = $true; $layout.WrapContents = $false
     $layout.Location = New-Object Drawing.Point(18, 16)
     $label = New-Object Windows.Forms.Label
-    $label.Text = $Text; $label.AutoSize = $true; $label.MaximumSize = New-Object Drawing.Size(460, 0); $label.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 14)
+    $label.Text = $Intro; $label.AutoSize = $true; $label.MaximumSize = New-Object Drawing.Size(540, 0); $label.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 8)
+    $label.Font = New-Object Drawing.Font('Segoe UI', 11, [Drawing.FontStyle]::Bold)
+    $layout.Controls.Add($label)
+    if ($News) {
+        $title = New-Object Windows.Forms.Label
+        $title.Text = "What's new"; $title.AutoSize = $true; $title.Margin = New-Object Windows.Forms.Padding(0, 4, 0, 4)
+        $title.Font = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold)
+        $box = New-Object Windows.Forms.TextBox
+        $box.Multiline = $true; $box.ReadOnly = $true; $box.ScrollBars = 'Vertical'; $box.TabStop = $false
+        $box.BackColor = [Drawing.SystemColors]::Window; $box.Size = New-Object Drawing.Size(540, 260)
+        $box.Text = $News; $box.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 12)
+        $layout.Controls.AddRange(@($title, $box))
+    }
+    $question = New-Object Windows.Forms.Label
+    $question.Text = "Install it now? Your settings are kept.`nNot now = start the version you have."
+    $question.AutoSize = $true; $question.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 12)
     $buttons = New-Object Windows.Forms.FlowLayoutPanel
     $buttons.FlowDirection = 'RightToLeft'; $buttons.AutoSize = $true; $buttons.Anchor = 'Right'
     $install = New-Object Windows.Forms.Button
@@ -34,11 +49,45 @@ function Request-UpdateConsent([string]$Text) {
     $later = New-Object Windows.Forms.Button
     $later.Text = 'Not now'; $later.Name = 'LaterButton'; $later.AutoSize = $true; $later.DialogResult = 'No'
     $buttons.Controls.AddRange(@($later, $install))
-    $layout.Controls.AddRange(@($label, $buttons))
+    $layout.Controls.AddRange(@($question, $buttons))
     $form.Controls.Add($layout)
     $form.AcceptButton = $install; $form.CancelButton = $later
-    $form.Add_Shown({ $form.Activate(); $form.BringToFront() })
+    $form.Add_Shown({ $form.Activate(); $form.BringToFront(); [void]$install.Focus() })
     try { return ($form.ShowDialog() -eq 'Yes') } finally { $form.Dispose() }
+}
+
+# Release notes as plain text: from the first "### ..." section (what is new), without install steps or Markdown marks.
+function Format-ReleaseNotes([string]$Body) {
+    $lines = ([string]$Body) -split "`r?`n"
+    $first = 0
+    for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^###\s') { $first = $i; break } }
+    $out = New-Object Collections.Generic.List[string]
+    for ($i = $first; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i].TrimEnd()
+        # The install steps come after what is new.
+        if ($line -match '^(\*\*)?(First installation|From \d|Already have|Notice in)') { break }
+        if ($line -match '^#{1,2}\s') { continue }
+        $line = $line -replace '^###\s*', '' -replace '\*\*', '' -replace '`', ''
+        $line = $line -replace '^\s*[-*]\s+', ('  ' + [char]0x2022 + '  ')
+        if ($line -eq '' -and ($out.Count -eq 0 -or $out[$out.Count - 1] -eq '')) { continue }
+        $out.Add($line)
+    }
+    return (($out -join "`r`n").Trim())
+}
+
+# What is new in every published version after the one you have, newest first.
+function Get-UpdateNews($Headers, [version]$Current, $Latest) {
+    # PowerShell 5 returns the JSON list as one object: ForEach-Object spreads it.
+    try { $all = @(Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases?per_page=30" -Headers $Headers -TimeoutSec 6 | ForEach-Object { $_ }) } catch { $all = @($Latest) }
+    $parts = @()
+    foreach ($r in $all) {
+        if ($r.draft -or $r.prerelease) { continue }
+        try { $v = [version](([string]$r.tag_name).TrimStart('v', 'V')) } catch { continue }
+        if ($v -le $Current) { continue }
+        $text = Format-ReleaseNotes $r.body
+        if ($text) { $parts += , [pscustomobject]@{ version = $v; text = $text } }
+    }
+    return (@($parts | Sort-Object version -Descending | ForEach-Object { $_.text }) -join "`r`n`r`n")
 }
 function Write-UpdateLog([string]$Text) {
     try { Add-Content -LiteralPath (Join-Path $folder 'update.log') -Value "$(Get-Date -Format s) $Text" -Encoding UTF8 } catch { }
@@ -68,10 +117,8 @@ function Update-Widget {
     if (-not $zipAsset -or -not $hashAsset) { Write-UpdateLog "version $latest has no zip or no checksum: not installed"; return }
     foreach ($asset in $zipAsset, $hashAsset) { if (-not ([string]$asset.browser_download_url).StartsWith($prefix)) { Write-UpdateLog 'unexpected download address: not installed'; return } }
     # Offered, never forced: nothing is downloaded without a yes.
-    $notes = ([string]$release.body).Trim()
-    if ($notes.Length -gt 600) { $notes = $notes.Substring(0, 600) + '...' }
-    $question = "A new version of TPV Widget is available: $latest (you have $current).`n`n$notes`n`nInstall it now? Your settings are kept.`nNot now = start the version you have."
-    if (-not (Request-UpdateConsent $question)) { Write-UpdateLog "version $latest offered, not installed"; return }
+    $news = Get-UpdateNews $headers $current $release
+    if (-not (Request-UpdateConsent "TPV Widget $latest is available (you have $current)." $news)) { Write-UpdateLog "version $latest offered, not installed"; return }
     $work = Join-Path ([IO.Path]::GetTempPath()) ('TPVWidget-update-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
     try {

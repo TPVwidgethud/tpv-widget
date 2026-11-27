@@ -231,22 +231,24 @@ static class TpvDialKit {
     }
 }
 
-// W'bal: every W'bal value in one block.
+// W'bal: what matters now in the largest text. Above CP, the time left before empty; below it, the level
+// and the time to refill. Flat colors by level, the share lost to fatigue hatched at the top of the arc,
+// and the watts you can still hold for 1 and 5 min.
 public sealed class TpvWbalGauge : FrameworkElement {
-    static readonly Brush Orange = TpvDialKit.Paint("#EF8A52"), Green = TpvDialKit.Paint("#68DF31"), Burn = TpvDialKit.Paint("#70FFFFFF");
-    static readonly Color[] LevelColors = {
-        Color.FromRgb(0xE0, 0x35, 0x2B), Color.FromRgb(0xEF, 0x8A, 0x52), Color.FromRgb(0xE7, 0xC0, 0x3F),
-        Color.FromRgb(0xB4, 0xDC, 0x38), Color.FromRgb(0x68, 0xDF, 0x31)
-    };
+    static readonly Brush Burn = TpvDialKit.Paint("#70FFFFFF"), Hatch = TpvDialKit.Paint("#B0FF6A5A"), Alarm = TpvDialKit.Paint("#55FF2D20");
+    static readonly Brush GreenLevel = TpvDialKit.Paint("#68DF31"), YellowLevel = TpvDialKit.Paint("#E7C03F"), OrangeLevel = TpvDialKit.Paint("#EF8A52"), RedLevel = TpvDialKit.Paint("#FF3B30");
 
     double percent = double.NaN, kilojoules, lowest = double.NaN, drop, maxDrop, effortStart = double.NaN;
+    double cap = 100, emptySeconds = double.NaN, emptyWatts, fullSeconds = double.NaN, hold1 = double.NaN, hold5 = double.NaN;
+    bool details, blink;
     string status = "", message = "--";
 
-    // Red when empty, through orange and yellow, to green when full.
-    static Brush LevelBrush(double pct) {
-        double position = Math.Max(0, Math.Min(100, pct)) / 25;
-        int low = Math.Min(3, (int)Math.Floor(position));
-        return TpvDialKit.Mix(LevelColors[low], LevelColors[low + 1], position - low, 255);
+    // Four plain levels, readable at a glance.
+    public static Brush LevelBrush(double pct) {
+        if (pct >= 50) return GreenLevel;
+        if (pct >= 25) return YellowLevel;
+        if (pct >= 10) return OrangeLevel;
+        return RedLevel;
     }
 
     public void SetValues(double pct, double kj, double low, double dropKj, double maxDropKj, double startPct, string state) {
@@ -257,12 +259,36 @@ public sealed class TpvWbalGauge : FrameworkElement {
         if (IsVisible) InvalidateVisual();
     }
 
+    // capPct: the highest level fatigue still allows. Times in seconds (NaN = not now, fullSec 0 = full).
+    public void SetContext(double capPct, double emptySec, double emptyAtWatts, double fullSec, double hold1Min, double hold5Min, bool showDetails) {
+        bool same = TpvDialKit.Same(cap, capPct, 0.2) && TpvDialKit.Same(emptySeconds, emptySec, 0.5) && TpvDialKit.Same(emptyWatts, emptyAtWatts, 0.5)
+            && TpvDialKit.Same(fullSeconds, fullSec, 0.5) && TpvDialKit.Same(hold1, hold1Min, 0.5) && TpvDialKit.Same(hold5, hold5Min, 0.5) && details == showDetails;
+        if (same) return;
+        cap = capPct; emptySeconds = emptySec; emptyWatts = emptyAtWatts; fullSeconds = fullSec; hold1 = hold1Min; hold5 = hold5Min; details = showDetails;
+        if (IsVisible) InvalidateVisual();
+    }
+
+    // Under 10 %, the block flashes: the caller switches this about twice a second.
+    public void SetBlink(bool on) {
+        bool shown = on && !double.IsNaN(percent) && percent < 10;
+        if (shown == blink) return;
+        blink = shown;
+        if (IsVisible) InvalidateVisual();
+    }
+
     public void ShowMessage(string text) {
         if (double.IsNaN(percent) && message == text) return;
         percent = double.NaN;
         message = text;
         if (IsVisible) InvalidateVisual();
     }
+
+    static string Clock(double seconds) {
+        int s = (int)Math.Round(Math.Max(0, seconds));
+        return (s / 60).ToString(CultureInfo.InvariantCulture) + ":" + (s % 60).ToString("00", CultureInfo.InvariantCulture);
+    }
+
+    static string Watts(double w) { return double.IsNaN(w) ? "--" : Math.Round(w).ToString("0", CultureInfo.InvariantCulture) + " W"; }
 
     protected override Size MeasureOverride(Size available) { return new Size(0, 168); }
 
@@ -271,34 +297,72 @@ public sealed class TpvWbalGauge : FrameworkElement {
         if (w <= 40 || h <= 60) return;
         CultureInfo inv = CultureInfo.InvariantCulture;
         bool known = !double.IsNaN(percent);
-        string low = double.IsNaN(lowest) ? "--" : Math.Round(lowest).ToString("0", inv) + " %";
-        List<TpvCell> cells = known ? new List<TpvCell> {
-            TpvDialKit.Stat("DROP", drop.ToString("0.0", inv) + " kJ"),
-            TpvDialKit.Stat("MAX DROP", maxDrop.ToString("0.0", inv) + " kJ"),
-            TpvDialKit.Stat("LOWEST", low)
-        } : new List<TpvCell>();
+        if (blink) dc.DrawRoundedRectangle(Alarm, null, new Rect(0, 0, w, h), 6, 6);
+        List<TpvCell> cells = new List<TpvCell>();
+        if (known) {
+            cells.Add(TpvDialKit.Stat("MAX 1 MIN", Watts(hold1)));
+            cells.Add(TpvDialKit.Stat("MAX 5 MIN", Watts(hold5)));
+            if (details) {
+                cells.Add(TpvDialKit.Stat("LOWEST", double.IsNaN(lowest) ? "--" : Math.Round(lowest).ToString("0", inv) + " %"));
+                cells.Add(TpvDialKit.Stat("MAX DROP", maxDrop.ToString("0.0", inv) + " kJ"));
+            }
+        }
         TpvDialPlace p = TpvDialKit.PlaceHalf(this, w, h, cells, r => 3 + 13 * TpvDialKit.Grow(r) * 1.35);
         double r0 = p.R, cx = p.Cx, cy = p.Cy, thickness = TpvDialKit.Thick(r0), grow = TpvDialKit.Grow(r0);
         TpvDialKit.Text(this, dc, "W'BAL", 11, TpvDialKit.Label, TpvDialKit.Bold, 0, 0, 0);
         TpvDialKit.Arc(dc, TpvDialKit.Stroke(TpvDialKit.Track, thickness, PenLineCap.Round), 0, 1, cx, cy, r0);
-        double[] marks = { 0, 25, 50, 75, 100 };
+        double[] marks = { 0, 50, 100 };
         if (!known) {
             TpvDialKit.Scale(this, dc, marks, 100, cx, cy, r0, thickness, -1);
             TpvDialKit.Text(this, dc, message, 15 * grow, TpvDialKit.Soft, TpvDialKit.Bold, cx, cy - 18 * grow, 0.5);
             return;
         }
-        TpvDialKit.Arc(dc, TpvDialKit.Stroke(LevelBrush(percent), thickness, PenLineCap.Round), 0, percent / 100, cx, cy, r0);
-        // What the current effort has burned, from its start down to now.
-        if (!double.IsNaN(effortStart)) TpvDialKit.Arc(dc, TpvDialKit.Stroke(Burn, thickness, PenLineCap.Flat), percent / 100, effortStart / 100, cx, cy, r0);
-        TpvDialKit.Scale(this, dc, marks, 100, cx, cy, r0, thickness, -1);
-        // Lowest point of the ride.
-        if (!double.IsNaN(lowest) && lowest < 99.5) {
-            dc.DrawLine(TpvDialKit.Stroke(TpvDialKit.White, 2.5, PenLineCap.Round), TpvDialKit.At(lowest / 100, cx, cy, r0 - thickness / 2 - 2), TpvDialKit.At(lowest / 100, cx, cy, r0 + thickness / 2 + 3));
+        // The top of the arc that fatigue no longer lets you reach: hatched.
+        if (cap < 99.5) {
+            Pen hatch = new Pen(Hatch, thickness);
+            hatch.DashStyle = new DashStyle(new double[] { 0.18, 0.32 }, 0);
+            hatch.DashCap = PenLineCap.Flat;
+            hatch.Freeze();
+            TpvDialKit.Arc(dc, hatch, Math.Max(0, cap) / 100, 1, cx, cy, r0);
         }
-        double big = Math.Max(22, Math.Min(90, r0 * 0.42));
-        TpvDialKit.Text(this, dc, Math.Round(percent).ToString("0", inv) + " %", big, TpvDialKit.White, TpvDialKit.Bold, cx, cy - big * 1.75, 0.5);
-        TpvDialKit.Text(this, dc, kilojoules.ToString("0.0", inv) + " kJ", 13 * grow, TpvDialKit.Soft, TpvDialKit.Regular, cx, cy - big * 0.42, 0.5);
-        TpvDialKit.Text(this, dc, status, 13 * grow, status.StartsWith("EMPTY") ? Orange : Green, TpvDialKit.Bold, cx, cy + 3, 0.5);
+        Brush level = LevelBrush(percent);
+        TpvDialKit.Arc(dc, TpvDialKit.Stroke(level, thickness, PenLineCap.Round), 0, percent / 100, cx, cy, r0);
+        // What the current effort has burned, from its start down to now, and a marker where it started.
+        if (!double.IsNaN(effortStart)) {
+            TpvDialKit.Arc(dc, TpvDialKit.Stroke(Burn, thickness, PenLineCap.Flat), percent / 100, effortStart / 100, cx, cy, r0);
+            double size = Math.Max(6, thickness * 0.55);
+            Point tip = TpvDialKit.At(effortStart / 100, cx, cy, r0 + thickness / 2 + 1);
+            Point back = TpvDialKit.At(effortStart / 100, cx, cy, r0 + thickness / 2 + 1 + size * 1.3);
+            Vector along = tip - back; along.Normalize();
+            Vector side = new Vector(-along.Y, along.X) * size * 0.75;
+            StreamGeometry arrow = new StreamGeometry();
+            using (StreamGeometryContext g = arrow.Open()) { g.BeginFigure(tip, true, true); g.LineTo(back + side, true, false); g.LineTo(back - side, true, false); }
+            arrow.Freeze();
+            dc.DrawGeometry(TpvDialKit.White, null, arrow);
+        }
+        TpvDialKit.Scale(this, dc, marks, 100, cx, cy, r0, thickness, -1);
+        // Lowest point of the ride: a red mark across the arc.
+        if (!double.IsNaN(lowest) && lowest < 99.5) {
+            dc.DrawLine(TpvDialKit.Stroke(RedLevel, 4, PenLineCap.Round), TpvDialKit.At(lowest / 100, cx, cy, r0 - thickness / 2 - 3), TpvDialKit.At(lowest / 100, cx, cy, r0 + thickness / 2 + 4));
+        }
+        double big = Math.Max(22, Math.Min(90, r0 * 0.42)), small = 13 * grow;
+        string pctText = Math.Round(percent).ToString("0", inv) + " %", kjText = kilojoules.ToString("0.0", inv) + " kJ";
+        if (!double.IsNaN(emptySeconds)) {
+            // Emptying: the countdown is the big number.
+            Brush urgent = emptySeconds <= 30 ? RedLevel : OrangeLevel;
+            TpvDialKit.Text(this, dc, Clock(emptySeconds), big, urgent, TpvDialKit.Bold, cx, cy - big * 1.75, 0.5);
+            TpvDialKit.Text(this, dc, pctText + "  " + kjText, small, level, TpvDialKit.Bold, cx, cy - big * 0.42, 0.5);
+            TpvDialKit.Text(this, dc, "TO EMPTY AT " + Watts(emptyWatts), small, urgent, TpvDialKit.Bold, cx, cy + 3, 0.5);
+        } else {
+            string state;
+            Brush stateBrush = GreenLevel;
+            if (double.IsNaN(fullSeconds)) { state = "HOLDING"; stateBrush = TpvDialKit.Soft; }
+            else if (fullSeconds <= 0) state = cap < 99.5 ? "FULL  (MAX " + Math.Round(cap).ToString("0", inv) + " %)" : "FULL";
+            else state = "FULL IN " + Clock(fullSeconds);
+            TpvDialKit.Text(this, dc, pctText, big, level, TpvDialKit.Bold, cx, cy - big * 1.75, 0.5);
+            TpvDialKit.Text(this, dc, kjText, small, TpvDialKit.Soft, TpvDialKit.Regular, cx, cy - big * 0.42, 0.5);
+            TpvDialKit.Text(this, dc, state, small, stateBrush, TpvDialKit.Bold, cx, cy + 3, 0.5);
+        }
         TpvDialKit.DrawCells(this, dc, cells, p.Plan, p.Text);
     }
 }

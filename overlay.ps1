@@ -1222,6 +1222,7 @@ public sealed class TpvGauge {
                             $left = $st.wbal.value / ($wbalPower - $cpNow)
                             if ($left -ge 60) { $left = 5 * [math]::Round($left / 5) }
                             $st.emptyText = Format-BrakeTime $left
+                            $st.emptySeconds = $left
                             $st.emptyWatts = [int](5 * [math]::Round($wbalPower / 5))
                             $st.emptyAt = Get-Date
                         }
@@ -1231,6 +1232,29 @@ public sealed class TpvGauge {
                     $st.phraseWanted = Get-WbalPhrase $wPct
                     $gaugeStatus = $(if ($null -ne $st.emptyAt) { "EMPTY IN $($st.emptyText) at $($st.emptyWatts) W" } elseif ($wPct -lt 99.5) { 'RECOVERING' } else { 'FULL' })
                     $wbalDial.SetValues([double]$wPct, [double]($st.wbal.value / 1000), [double](100 * $st.wbal.lowest / $st.wbal.wPrime), [double]($st.wbal.drop / 1000), [double]($st.wbal.maxDrop / 1000), [double]$gaugeStart, [string]$gaugeStatus)
+                    # Below CP W' refills toward what fatigue allows; "full" = 95 % of that, at the 5 s average power.
+                    $capJ = [double]$st.wbal.wPrime * $fatigue
+                    if ($null -ne $st.emptyAt) {
+                        $st.fullAt = $null; $st.fullSeconds = [double]::NaN
+                    } elseif ($st.wbal.value -ge 0.95 * $capJ) {
+                        $st.fullAt = $null; $st.fullSeconds = 0.0
+                    } elseif ($wbalPower -lt $cpNow - 1) {
+                        if ($null -eq $st.fullAt -or ((Get-Date) - $st.fullAt).TotalSeconds -ge [double]$st.emptyRefresh - 0.05) {
+                            $tau = $capJ / ((Get-RecoveryFactor $st.wbal.deepEfforts) * ($cpNow - $wbalPower))
+                            $full = $tau * [math]::Log(($capJ - $st.wbal.value) / (0.05 * $capJ))
+                            if ($full -ge 60) { $full = 5 * [math]::Round($full / 5) }
+                            $st.fullSeconds = [math]::Min([double]5999, $full)
+                            $st.fullAt = Get-Date
+                        }
+                    } else {
+                        $st.fullAt = $null; $st.fullSeconds = [double]::NaN
+                    }
+                    $emptySeconds = $(if ($null -ne $st.emptyAt) { [double]$st.emptySeconds } else { [double]::NaN })
+                    # What you can still hold: CP now plus the W' left spread over the time.
+                    $hold1 = 5 * [math]::Round(($cpNow + $st.wbal.value / 60) / 5)
+                    $hold5 = 5 * [math]::Round(($cpNow + $st.wbal.value / 300) / 5)
+                    $wbalDial.SetContext([double](100 * $fatigue), $emptySeconds, [double]$st.emptyWatts, [double]$st.fullSeconds, [double]$hold1, [double]$hold5, [bool]$st.display['wbaldetails'])
+                    $wbalDial.SetBlink([bool]((Get-Date).Millisecond -lt 500))
                     $ui.WbalFill.Background = $(if ($wPct -lt 25) { $wbalOrange } elseif ($wPct -lt 50) { $wbalYellow } else { $wbalGreen })
                     $ui.WbalHint.Text = $(if ($null -ne $st.emptyAt) { "empty in $($st.emptyText)" } else { '' })
                 } else {
@@ -1782,6 +1806,7 @@ public sealed class TpvGauge {
     }
     $displayItems = @(
         @{ group = 'GAUGES'; key = 'wbalgauge'; label = "W'bal" },
+        @{ group = 'GAUGES'; key = 'wbaldetails'; label = "W'bal details" },
         @{ group = 'GAUGES'; key = 'powerdial'; label = 'Power' },
         @{ group = 'GAUGES'; key = 'draftdial'; label = 'Draft / brake' },
         @{ group = 'GAUGES'; key = 'winddial'; label = 'Wind' },

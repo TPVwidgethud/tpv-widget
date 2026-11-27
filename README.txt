@@ -1,4 +1,4 @@
-﻿TPV Widget 2.2 - overlay for TrainingPeaks Virtual
+﻿TPV Widget 2.3 - overlay for TrainingPeaks Virtual
 ===================================================
 English | Svenska | Français
 
@@ -16,7 +16,7 @@ Nothing to install
    For a shortcut: right-click "Start TPV Widget.cmd" > Send to > Desktop.
 Settings, learned corners and learned route profiles stay in this folder.
 Update: offered at start. When a newer version is published on GitHub (github.com/TPVwidgethud/tpv-widget),
-"Start TPV Widget.cmd" asks whether to install it: Yes installs it and keeps your settings, No starts
+"Start TPV Widget.cmd" shows what is new and asks: Install keeps your settings, Not now starts
 the version you have. To never be asked: create an empty file named no-update.txt in this folder.
 Remove: close the widget (☰ > Close widget) and delete the folder.
 
@@ -46,6 +46,11 @@ Use
 Read automatically
 - Your name, FTP, CP and W': from the TPV logs (Documents\TPVirtual\LogFiles).
   W'bal is only computed for your own rider.
+  W'bal gauge: above CP the big number is the time left before empty (at your 5 s power), below CP
+  it is the level with the time to refill. Green, yellow (under 50 %), orange (under 25 %), red and
+  flashing (under 10 %). MAX 1 MIN / MAX 5 MIN: the power you can still hold that long. White arrow:
+  where the current effort started; red mark: lowest of the ride; hatched end: lost to fatigue.
+  "W'bal details" in the displayed items adds the lowest level and the largest drop.
   ☰ > FTP, W' (kJ) and CP (W'BAL): - / + forces your own value (shown in orange with SET), AUTO goes back
   to the TPV value.
 - Fatigue on long rides: after the first 1000 kJ, CP and W' fall a little for every 1000 kJ of the
@@ -78,8 +83,8 @@ Inget att installera
    För en genväg: högerklicka på "Start TPV Widget.cmd" > Skicka till > Skrivbord.
 Inställningar, inlärda kurvor och inlärda vägprofiler sparas i den här mappen.
 Uppdatering: erbjuds vid start. När en nyare version finns på GitHub (github.com/TPVwidgethud/tpv-widget)
-frågar "Start TPV Widget.cmd" om den ska installeras: Ja installerar den och behåller dina inställningar,
-Nej startar den version du har. För att aldrig bli tillfrågad: skapa en tom fil som heter no-update.txt här.
+visar "Start TPV Widget.cmd" vad som är nytt och frågar: Install behåller dina inställningar,
+Not now startar den version du har. För att aldrig bli tillfrågad: skapa en tom fil som heter no-update.txt här.
 Borttagning: stäng widgeten (☰ > Close widget) och radera mappen.
 
 Användning
@@ -111,6 +116,11 @@ Texterna i widgeten är på engelska.
 Läses automatiskt
 - Ditt namn, din FTP, CP och W': från TPV:s loggar (Documents\TPVirtual\LogFiles).
   W'bal beräknas bara för din egen cyklist.
+  W'bal-mätaren: över CP är den stora siffran tiden kvar till tomt (med din 5 s-effekt), under CP
+  är det nivån med tiden till full. Grön, gul (under 50 %), orange (under 25 %), röd och blinkande
+  (under 10 %). MAX 1 MIN / MAX 5 MIN: effekten du fortfarande kan hålla så länge. Vit pil: där
+  insatsen började; röd markering: turens lägsta; streckat slut: förlorat till trötthet.
+  "W'bal details" bland de visade delarna lägger till lägsta nivå och största tapp.
   ☰ > FTP, W' (kJ) och CP (W'BAL): - / + tvingar ett eget värde (visas i orange med SET), AUTO går
   tillbaka till värdet från TPV.
 - Trötthet på långa lopp: efter de första 1000 kJ sjunker CP och W' lite för varje 1000 kJ av
@@ -145,8 +155,8 @@ Rien à installer
    Pour un raccourci : clic droit sur « Start TPV Widget.cmd » > Envoyer vers > Bureau.
 Réglages, virages appris et profils de route appris restent dans ce dossier.
 Mise à jour : proposée au lancement. Quand une version plus récente est publiée sur GitHub
-(github.com/TPVwidgethud/tpv-widget), « Start TPV Widget.cmd » demande s'il faut l'installer : Oui l'installe
-et garde vos réglages, Non démarre la version actuelle. Pour ne plus être sollicité : créez un fichier vide
+(github.com/TPVwidgethud/tpv-widget), « Start TPV Widget.cmd » présente les nouveautés et demande : Install l'installe
+et garde vos réglages, Not now démarre la version actuelle. Pour ne plus être sollicité : créez un fichier vide
 nommé no-update.txt dans ce dossier.
 Suppression : quittez le widget (☰ > Close widget) et supprimez le dossier.
 
@@ -179,6 +189,12 @@ Les textes du widget sont en anglais.
 Ce qui est lu automatiquement
 - Votre nom, votre FTP, votre CP et votre W' : dans les journaux de TPV (Documents\TPVirtual\LogFiles).
   Le W'bal n'est calculé que pour votre coureur.
+  Jauge W'bal : au-dessus du CP, le gros chiffre est le temps avant d'être vide (à votre puissance
+  sur 5 s) ; en dessous, c'est le niveau avec le temps pour se recharger. Vert, jaune (sous 50 %),
+  orange (sous 25 %), rouge et clignotant (sous 10 %). MAX 1 MIN / MAX 5 MIN : la puissance que vous
+  pouvez encore tenir aussi longtemps. Flèche blanche : début de l'effort en cours ; trait rouge : le
+  plus bas de la sortie ; bout hachuré : perdu à cause de la fatigue. « W'bal details » dans les
+  éléments affichés ajoute le plus bas et la plus grosse baisse.
   ☰ > FTP, W' (kJ) et CP (W'BAL) : - / + force votre propre valeur (affichée en orange avec SET), AUTO
   revient à la valeur de TPV.
 - La fatigue sur les sorties longues : après les 1000 premiers kJ, le CP et le W' baissent un peu
