@@ -1,4 +1,4 @@
-﻿TPV Widget 2.1 - overlay for TrainingPeaks Virtual
+﻿TPV Widget 2.2 - overlay for TrainingPeaks Virtual
 ===================================================
 English | Svenska | Français
 
@@ -48,6 +48,12 @@ Read automatically
   W'bal is only computed for your own rider.
   ☰ > FTP, W' (kJ) and CP (W'BAL): - / + forces your own value (shown in orange with SET), AUTO goes back
   to the TPV value.
+- Fatigue on long rides: after the first 1000 kJ, CP and W' fall a little for every 1000 kJ of the
+  ride, and W' refills more slowly after each effort that took half of it. Late in a race W'bal no
+  longer climbs back to 100 %, and the top line shows "CP -x % (fatigue)".
+  ☰ > RIDER > FATIGUE: AUTO learns your own rate from your rides (your best 1 and 5 min efforts,
+  fresh against after many kJ); it starts at 3 % per 1000 kJ. - / + or typing forces a value.
+  "Reset learning" (click twice) forgets what was learned. Kept only on your PC (durability.json).
 - Ride data: Documents\TPVirtual\Broadcast.
 - Route profiles: route files installed by TPV, matched from the GPS position.
   Event route: when the game has not installed it, the widget reads it when the event opens, from
@@ -107,6 +113,13 @@ Läses automatiskt
   W'bal beräknas bara för din egen cyklist.
   ☰ > FTP, W' (kJ) och CP (W'BAL): - / + tvingar ett eget värde (visas i orange med SET), AUTO går
   tillbaka till värdet från TPV.
+- Trötthet på långa lopp: efter de första 1000 kJ sjunker CP och W' lite för varje 1000 kJ av
+  turen, och W' fylls på långsammare efter varje insats som tog hälften av den. Sent i ett lopp
+  når W'bal inte längre 100 %, och översta raden visar "CP -x % (fatigue)".
+  ☰ > RIDER > FATIGUE: AUTO lär sig din egen takt från dina turer (dina bästa insatser på 1 och
+  5 min, utvilad jämfört med efter många kJ); den börjar på 3 % per 1000 kJ. - / + eller att skriva
+  ett värde tvingar det. "Reset learning" (klicka två gånger) glömmer det inlärda. Sparas bara
+  på din dator (durability.json).
 - Åkdata: Documents\TPVirtual\Broadcast.
 - Vägprofiler: ruttfiler som TPV har installerat, igenkända från GPS-positionen.
   Ett evenemangs rutt: om spelet inte har installerat den läser widgeten den när evenemanget
@@ -168,6 +181,14 @@ Ce qui est lu automatiquement
   Le W'bal n'est calculé que pour votre coureur.
   ☰ > FTP, W' (kJ) et CP (W'BAL) : - / + force votre propre valeur (affichée en orange avec SET), AUTO
   revient à la valeur de TPV.
+- La fatigue sur les sorties longues : après les 1000 premiers kJ, le CP et le W' baissent un peu
+  pour chaque tranche de 1000 kJ, et le W' se recharge plus lentement après chaque effort qui en a
+  pris la moitié. En fin de course, le W'bal ne remonte plus à 100 %, et la ligne du haut affiche
+  « CP -x % (fatigue) ».
+  ☰ > RIDER > FATIGUE : AUTO apprend votre propre baisse à partir de vos sorties (vos meilleurs
+  efforts de 1 et 5 min, frais comparés à ceux faits après beaucoup de kJ) ; il part de 3 % par
+  1000 kJ. - / + ou une valeur tapée la force. « Reset learning » (deux clics) efface ce qui a été
+  appris. Conservé uniquement sur votre PC (durability.json).
 - Les données de course : Documents\TPVirtual\Broadcast.
 - Le profil des routes : fichiers de route installés par TPV, reconnus par la position GPS.
   Route d'un événement : si le jeu ne l'a pas installée, le widget la lit à l'ouverture de

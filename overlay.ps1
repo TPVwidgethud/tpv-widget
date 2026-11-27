@@ -26,6 +26,7 @@ try {
     [Diagnostics.Process]::GetCurrentProcess().PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal
     . (Join-Path $PSScriptRoot 'brake-score.ps1')
     . (Join-Path $PSScriptRoot 'wbal.ps1')
+    . (Join-Path $PSScriptRoot 'durability.ps1')
     . (Join-Path $PSScriptRoot 'race-data.ps1')
     . (Join-Path $PSScriptRoot 'tactics.ps1')
     . (Join-Path $PSScriptRoot 'ride-stats.ps1')
@@ -1007,6 +1008,7 @@ public sealed class TpvGauge {
         $ftpLabel = $(if (Test-OwnRider) {
                 if ($st.ftpForced -gt 0) { "FTP $([int]$st.ftpForced) (set)" } elseif ($st.ownFtpEstimate) { "FTP ~$([int][math]::Round($st.ownFtpEstimate))" } else { "FTP $([int]$FtpWatts)" }
             } elseif ($st.ftpEstimate) { "FTP ~$([int][math]::Round($st.ftpEstimate))" } else { "FTP ? (yours until known)" })
+        if ($who -eq $MyRiderName -and $st.fatigueShown -ge 1) { $ftpLabel += "  |  CP -$($st.fatigueShown) % (fatigue)" }
         if (-not $st.move) { $ui.RiderText.Text = $(if ($st.dataState -ne 'live') { 'Waiting for game data' } elseif ($who) { "$who  |  $ftpLabel" } else { 'Waiting for rider' }) }
         $session = $st.coach.session
         if ($who -and $who -ne $MyRiderName) {
@@ -1169,11 +1171,44 @@ public sealed class TpvGauge {
                     $ui.VamText.Text = '--'
                     $st.vamShownAt = $null
                 }
+                # Durability: the ride's work comes from the game (average power x time), so a restart of the
+                # widget keeps it; your best efforts are recorded by the work done when they started.
+                $cpNow = Get-CpUsed
+                $fatigue = 1.0
+                if ($rider -eq $MyRiderName) {
+                    $durNow = Get-Date
+                    if ($d.time -is [ValueType] -and $null -ne $st.durGameTime -and $d.time -lt $st.durGameTime) {
+                        Save-DurabilityProfile $st.durProfile $st.durRide $st.durPath
+                        $st.durRide = New-DurabilityRide
+                        $st.durEstimate = Get-DurabilityEstimate $st.durProfile
+                    }
+                    if ($d.time -is [ValueType]) { $st.durGameTime = $d.time }
+                    $durDt = $(if ($null -ne $st.durLast) { ($durNow - $st.durLast).TotalSeconds } else { 0.0 })
+                    $st.durLast = $durNow
+                    $st.rideWork = $(if ($d.avgPower -is [ValueType] -and $d.time -is [ValueType]) { [double]$d.avgPower * [double]$d.time } else { [double]$st.durRide.work })
+                    Add-DurabilitySample $st.durRide ([double]$d.power) $durDt $st.rideWork
+                    if ($st.durRide.changed -and ($durNow - $st.durSavedAt).TotalSeconds -ge 60) {
+                        Save-DurabilityProfile $st.durProfile $st.durRide $st.durPath
+                        $st.durSavedAt = $durNow
+                        $st.durEstimate = Get-DurabilityEstimate $st.durProfile
+                    }
+                    $fatigue = Get-FatigueFactor $st.rideWork (Get-DurabilityRate)
+                    $cpNow = (Get-CpUsed) * $fatigue
+                } else {
+                    $st.durLast = $null
+                }
+                $st.fatigue = $fatigue
+                $fatiguePct = [int][math]::Round(100 * (1 - $fatigue))
+                if ($fatiguePct -ne $st.fatigueShown) { $st.fatigueShown = $fatiguePct; Show-BrakeScore }
                 if ($st.wbal -and $rider -eq $MyRiderName) {
                     # The ride clock going backwards means a new ride: start with a full W'.
                     if ($d.time -is [ValueType] -and $null -ne $st.wbal.gameTime -and $d.time -lt $st.wbal.gameTime) { Reset-WBal $st.wbal; $wbalChart.Clear() }
                     if ($d.time -is [ValueType]) { $st.wbal.gameTime = $d.time }
-                    Update-WBal $st.wbal ([double]$d.power) (Get-CpUsed) (Get-Date)
+                    Update-WBal $st.wbal ([double]$d.power) $cpNow (Get-Date) $fatigue (Get-RecoveryFactor $st.wbal.deepEfforts)
+                    if ($st.wbal.tooPessimistic) {
+                        $st.wbal.tooPessimistic = $false
+                        if ($st.durForced -lt 0) { Add-DurabilityCorrection $st.durProfile; Save-DurabilityProfile $st.durProfile $null $st.durPath; $st.durEstimate = Get-DurabilityEstimate $st.durProfile }
+                    }
                     $wPct = 100 * $st.wbal.value / $st.wbal.wPrime
                     $st.wbalTarget = $wPct / 100
                     $ui.WbalText.Text = ([math]::Round($wPct)).ToString($inv) + ' %  ' + ($st.wbal.value / 1000).ToString('0.0', $inv) + ' kJ'
@@ -1182,9 +1217,9 @@ public sealed class TpvGauge {
                     $ui.WdropText.Text = Format-WDrop $st.wbal
                     $gaugeStart = $(if ($null -ne $st.wbal.effortStart) { 100 * [double]$st.wbal.effortStart / $st.wbal.wPrime } else { [double]::NaN })
                     # The time left follows the 5 s average power and changes at most once per second, so that it can be read.
-                    if ($wbalPower -gt (Get-CpUsed)) {
+                    if ($wbalPower -gt $cpNow) {
                         if ($null -eq $st.emptyAt -or ((Get-Date) - $st.emptyAt).TotalSeconds -ge [double]$st.emptyRefresh - 0.05) {
-                            $left = $st.wbal.value / ($wbalPower - (Get-CpUsed))
+                            $left = $st.wbal.value / ($wbalPower - $cpNow)
                             if ($left -ge 60) { $left = 5 * [math]::Round($left / 5) }
                             $st.emptyText = Format-BrakeTime $left
                             $st.emptyWatts = [int](5 * [math]::Round($wbalPower / 5))
@@ -1466,6 +1501,20 @@ public sealed class TpvGauge {
         <TextBox x:Name="CpLabel" Grid.Column="1" Text="AUTO" Style="{StaticResource ValueBox}" ToolTip="Click and type a value, Enter to keep it, Esc to cancel"/>
         <RepeatButton x:Name="CpMoreButton" Grid.Column="2" AutomationProperties.Name="Raise CP" Content="+"/>
       </Grid>
+      <DockPanel Margin="2,0,0,4">
+        <Button x:Name="DurAutoButton" DockPanel.Dock="Right" Height="22" Padding="10,0" AutomationProperties.Name="Durability learned" ToolTip="Back to the value learned from your rides" Content="AUTO" FontSize="11"/>
+        <TextBlock Text="FATIGUE (% / 1000 kJ)" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+      </DockPanel>
+      <Grid x:Name="DurRow" Height="30" Margin="0,0,0,4" Background="Transparent" ToolTip="How much CP and W' fall for each 1000 kJ of the ride, after the first 1000 kJ. AUTO = learned from your own rides. - / + forces a value (0.5 % steps). Type a value in the middle">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
+        <RepeatButton x:Name="DurLessButton" AutomationProperties.Name="Less fatigue" Content="&#x2212;"/>
+        <TextBox x:Name="DurLabel" Grid.Column="1" Text="AUTO" Style="{StaticResource ValueBox}" ToolTip="Click and type a value in %, Enter to keep it, Esc to cancel"/>
+        <RepeatButton x:Name="DurMoreButton" Grid.Column="2" AutomationProperties.Name="More fatigue" Content="+"/>
+      </Grid>
+      <DockPanel Margin="2,0,0,10">
+        <Button x:Name="DurResetButton" DockPanel.Dock="Right" Height="22" Padding="8,0" Margin="6,0,0,0" VerticalAlignment="Top" AutomationProperties.Name="Reset learning" ToolTip="Forget what was learned from your rides (click twice)" Content="Reset learning" FontSize="11"/>
+        <TextBlock x:Name="DurInfo" FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap"/>
+      </DockPanel>
       <Button x:Name="AllAutoButton" AutomationProperties.Name="All values from TPV" Content="All AUTO (values from TPV)" Height="27" Margin="2,0,2,10"/>
       <TextBlock Text="Click a value to type it (Enter = keep, Esc = cancel). The game loses the keyboard while you type: click back in the game afterwards." FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,0,0,8"/>
       <TextBlock Text="W'BAL TIME REFRESH" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
@@ -2084,6 +2133,32 @@ public sealed class TpvGauge {
     $st.ownFtpEstimate = $null
     $st.wForced = 0.0
     $st.cpForced = 0.0
+    # Durability: -1 = AUTO (learned from your rides), else a fraction per 1000 kJ. durability.json is personal.
+    $st.durForced = -1.0
+    $st.durPath = Join-Path $PSScriptRoot 'durability.json'
+    $st.durProfile = Read-DurabilityProfile $st.durPath
+    $st.durRide = New-DurabilityRide
+    $st.durEstimate = Get-DurabilityEstimate $st.durProfile
+    $st.durSavedAt = Get-Date
+    $st.durLast = $null
+    $st.durGameTime = $null
+    $st.rideWork = 0.0
+    $st.fatigue = 1.0
+    $st.fatigueShown = $null
+    $st.durResetArmed = $null
+    function Get-DurabilityRate { if ($st.durForced -ge 0) { return [double]$st.durForced } return [double]$st.durEstimate.rate }
+    function Step-ForcedDurability([int]$Direction) {
+        $from = [math]::Round((Get-DurabilityRate) * 200) / 200
+        $st.durForced = [math]::Max([double]0, [math]::Min([double]0.10, $from + 0.005 * $Direction))
+        Update-ForceLabels
+    }
+    function Reset-Durability {
+        $st.durProfile = @{ rides = @(); adjust = 0.0 }
+        $st.durRide = New-DurabilityRide
+        Save-DurabilityProfile $st.durProfile $null $st.durPath
+        $st.durEstimate = Get-DurabilityEstimate $st.durProfile
+        Update-ForceLabels
+    }
     function Get-FtpAtTssStep([double]$Tss, [double]$NormalizedPower, [double]$Seconds) {
         if ($Tss -lt 1 -or $Seconds -lt 60 -or $NormalizedPower -le 0) { return $null }
         $ftp = $NormalizedPower * [math]::Sqrt(100 * $Seconds / (3600 * $Tss))
@@ -2133,6 +2208,13 @@ public sealed class TpvGauge {
         $forceCpLabel.Foreground = $(if ($st.cpForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
         $forceFtpLabel.Foreground = $(if ($st.ftpForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
         $forceWLabel.Foreground = $(if ($st.wForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
+        $durLabelText = $(if ($st.durForced -ge 0) { (100 * $st.durForced).ToString('0.0', $inv) + ' % SET' } else { 'AUTO ' + (100 * $st.durEstimate.rate).ToString('0.0', $inv) + ' %' })
+        if (-not $forceDurLabel.IsKeyboardFocused -and $forceDurLabel.Text -ne $durLabelText) { $forceDurLabel.Text = $durLabelText }
+        $forceDurLabel.Foreground = $(if ($st.durForced -ge 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
+        $learnedText = $(if ($st.durEstimate.rides -gt 0) { "Learned from $($st.durEstimate.rides) ride$(if ($st.durEstimate.rides -gt 1) { 's' }) (your rides alone: $((100 * $st.durEstimate.learned).ToString('0.0', $inv)) %)." } else { 'Default 3 % until your rider has done efforts after 1000 kJ.' })
+        $nowText = $(if ($st.fatigue -lt 0.995) { " Now: CP and W' -$([int][math]::Round(100 * (1 - $st.fatigue))) % after $([int]($st.rideWork / 1000)) kJ." } else { " Now: $([int]($st.rideWork / 1000)) kJ, no fatigue yet (starts after 1000 kJ)." })
+        $menu.FindName('DurInfo').Text = $learnedText + $nowText
+        if ($st.durResetArmed -and ((Get-Date) - $st.durResetArmed).TotalSeconds -gt 4) { $st.durResetArmed = $null; $menu.FindName('DurResetButton').Content = 'Reset learning' }
     }
 
     function Step-ForcedFtp([int]$Direction) {
@@ -2279,6 +2361,7 @@ public sealed class TpvGauge {
             'ftp' { return ([int][math]::Round((Get-OwnFtp))).ToString($inv) }
             'cp' { return ([int][math]::Round((Get-CpUsed))).ToString($inv) }
             'w' { $j = $(if ($st.wbal) { [double]$st.wbal.wPrime } elseif ($wProfile) { [double]$wProfile.wPrime } else { 20000.0 }); return ($j / 1000).ToString('0.0', $inv) }
+            'dur' { return (100 * (Get-DurabilityRate)).ToString('0.0', $inv) }
         }
     }
     # Accepts "390", "390 W", "31", "31.5", "31,5 kJ" or "31000": out of range or unreadable keeps the value as it was.
@@ -2293,6 +2376,7 @@ public sealed class TpvGauge {
                     $joules = $(if ($value -lt 100) { $value * 1000 } else { $value })
                     if ($joules -ge 5000 -and $joules -le 60000) { $st.wForced = [math]::Round($joules / 100) * 100; Set-WPrimeUsed $st.wForced }
                 }
+                'dur' { if ($value -ge 0 -and $value -le 10) { $st.durForced = [math]::Round($value * 10) / 1000 } }
             }
         }
         Update-ForceLabels
@@ -2313,6 +2397,7 @@ public sealed class TpvGauge {
             if ($null -ne $saved.vamRefresh -and [double]$saved.vamRefresh -ge 0 -and [double]$saved.vamRefresh -le 60) { $st.vamRefresh = [double]$saved.vamRefresh }
             if ($null -ne $saved.ftpForced -and [double]$saved.ftpForced -ge 50 -and [double]$saved.ftpForced -le 1000) { $st.ftpForced = [double]$saved.ftpForced }
             if ($null -ne $saved.cpForced -and [double]$saved.cpForced -ge 50 -and [double]$saved.cpForced -le 1000) { $st.cpForced = [double]$saved.cpForced }
+            if ($null -ne $saved.durForced -and [double]$saved.durForced -ge 0 -and [double]$saved.durForced -le 0.10) { $st.durForced = [double]$saved.durForced }
             if ($null -ne $saved.wForced -and [double]$saved.wForced -ge 5000 -and [double]$saved.wForced -le 60000) { $st.wForced = [double]$saved.wForced }
             if ($null -ne $saved.emptyRefresh -and [double]$saved.emptyRefresh -ge 0 -and [double]$saved.emptyRefresh -le 30) { $st.emptyRefresh = [double]$saved.emptyRefresh }
             if ($null -ne $saved.alertScale -and [double]$saved.alertScale -ge 0.4 -and [double]$saved.alertScale -le 3) { $st.alertScale = [double]$saved.alertScale }
@@ -2416,7 +2501,7 @@ public sealed class TpvGauge {
         $besideRow = @()
         $blockSize = @()
         foreach ($part in $parts) { $fullRow += @($part.panel.GetFullKeys()); $besideRow += @($part.panel.GetBesideKeys()); $blockSize += @($part.panel.GetGrowList()) }
-        $json = @{ profiles = $st.profiles; profile = $st.profile; menuTab = $st.menuTab; blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 8
+        $json = @{ profiles = $st.profiles; profile = $st.profile; menuTab = $st.menuTab; blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; durForced = $st.durForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 8
         Write-FileSafely $settingsPath $json
     }
 
@@ -2570,6 +2655,20 @@ public sealed class TpvGauge {
     $forceFtpLabel = $menu.FindName('FtpLabel')
     $forceWLabel = $menu.FindName('WPrimeLabel')
     $forceCpLabel = $menu.FindName('CpLabel')
+    $forceDurLabel = $menu.FindName('DurLabel')
+    $menu.FindName('DurLessButton').add_Click({ Step-ForcedDurability -1 })
+    $menu.FindName('DurMoreButton').add_Click({ Step-ForcedDurability 1 })
+    $menu.FindName('DurAutoButton').add_Click({ $st.durForced = -1.0; Update-ForceLabels; Save-WidgetSettings })
+    $menu.FindName('DurResetButton').add_Click({
+        if ($st.durResetArmed -and ((Get-Date) - $st.durResetArmed).TotalSeconds -le 4) {
+            $st.durResetArmed = $null
+            $args[0].Content = 'Reset learning'
+            Reset-Durability
+        } else {
+            $st.durResetArmed = Get-Date
+            $args[0].Content = 'Sure? Click again'
+        }
+    })
     if ($st.wForced -gt 0) { Set-WPrimeUsed $st.wForced }
     Update-ForceLabels
     $menu.FindName('FtpLessButton').add_Click({ Step-ForcedFtp -1 })
@@ -2580,11 +2679,11 @@ public sealed class TpvGauge {
     $menu.FindName('WPrimeAutoButton').add_Click({ $st.wForced = 0.0; Set-WPrimeUsed 0; Update-ForceLabels; Save-WidgetSettings })
     $menu.FindName('CpLessButton').add_Click({ Step-ForcedCp -1 })
     $menu.FindName('AllAutoButton').add_Click({
-        $st.ftpForced = 0.0; $st.wForced = 0.0; $st.cpForced = 0.0
+        $st.ftpForced = 0.0; $st.wForced = 0.0; $st.cpForced = 0.0; $st.durForced = -1.0
         Set-WPrimeUsed 0
         Update-ForceLabels; Show-BrakeScore; Save-WidgetSettings
     })
-    foreach ($typed in @(@('FtpLabel', 'ftp'), @('WPrimeLabel', 'w'), @('CpLabel', 'cp'))) {
+    foreach ($typed in @(@('FtpLabel', 'ftp'), @('WPrimeLabel', 'w'), @('CpLabel', 'cp'), @('DurLabel', 'dur'))) {
         $box = $menu.FindName($typed[0])
         $box.Tag = $typed[1]
         # The menu never takes the keyboard from the game, except while a value is being typed.
@@ -2614,7 +2713,7 @@ public sealed class TpvGauge {
     Update-ProfileButtons
     $menu.FindName('CpMoreButton').add_Click({ Step-ForcedCp 1 })
     $menu.FindName('CpAutoButton').add_Click({ $st.cpForced = 0.0; Update-ForceLabels; Save-WidgetSettings })
-    foreach ($forceStep in 'FtpLessButton', 'FtpMoreButton', 'WPrimeLessButton', 'WPrimeMoreButton', 'CpLessButton', 'CpMoreButton') { $menu.FindName($forceStep).add_PreviewMouseLeftButtonUp({ Save-WidgetSettings }) }
+    foreach ($forceStep in 'FtpLessButton', 'FtpMoreButton', 'WPrimeLessButton', 'WPrimeMoreButton', 'CpLessButton', 'CpMoreButton', 'DurLessButton', 'DurMoreButton') { $menu.FindName($forceStep).add_PreviewMouseLeftButtonUp({ Save-WidgetSettings }) }
     $menu.FindName('EmptyLessButton').add_Click({ Step-EmptyRefresh -1 })
     $menu.FindName('EmptyMoreButton').add_Click({ Step-EmptyRefresh 1 })
     foreach ($emptyStep in 'EmptyLessButton', 'EmptyMoreButton') { $menu.FindName($emptyStep).add_PreviewMouseLeftButtonUp({ Save-WidgetSettings }) }
@@ -2933,7 +3032,7 @@ public sealed class TpvGauge {
         if ($st.tick % 20 -eq 10) { Sync-WbalPhrase }
         if ($st.tick % 20 -eq 15 -and $menu.IsVisible) { Update-ForceLabels }
         if ($st.tick % 20 -eq 5) {
-            $settingsNow = "$($st.ftpForced)|$($st.wForced)|$($st.cpForced)|$($st.emptyRefresh)|$($st.alertScale)|$($st.routeSpan)|$($st.bgOpacity)|$($st.vamRefresh)"
+            $settingsNow = "$($st.ftpForced)|$($st.wForced)|$($st.cpForced)|$($st.durForced)|$($st.emptyRefresh)|$($st.alertScale)|$($st.routeSpan)|$($st.bgOpacity)|$($st.vamRefresh)"
             if ($null -eq $st.settingsSaved) { $st.settingsSaved = $settingsNow }
             elseif ($settingsNow -ne $st.settingsSaved) { $st.settingsSaved = $settingsNow; Save-WidgetSettings }
         }

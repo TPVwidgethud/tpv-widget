@@ -22,7 +22,7 @@ function Get-WPrimeProfile([string]$LogDirectory, [double]$MinConfidence = 0.5) 
 }
 
 function New-WBal([double]$WPrime) {
-    return @{ wPrime = $WPrime; value = $WPrime; last = $null; gameTime = $null; effortStart = $null; belowCp = 0.0; drop = 0.0; maxDrop = 0.0; lowest = $WPrime }
+    return @{ wPrime = $WPrime; value = $WPrime; last = $null; gameTime = $null; effortStart = $null; belowCp = 0.0; drop = 0.0; maxDrop = 0.0; lowest = $WPrime; dt = 0.0; deepEfforts = 0; overshoot = 0.0; tooPessimistic = $false }
 }
 
 function Reset-WBal($State) {
@@ -34,6 +34,10 @@ function Reset-WBal($State) {
     $State.drop = 0.0
     $State.maxDrop = 0.0
     $State.lowest = $State.wPrime
+    $State.dt = 0.0
+    $State.deepEfforts = 0
+    $State.overshoot = 0.0
+    $State.tooPessimistic = $false
 }
 
 function Format-WDrop($State) {
@@ -42,27 +46,40 @@ function Format-WDrop($State) {
     return (([double]$State.drop / 1000).ToString('0.0', $inv) + ' kJ  max ' + ([double]$State.maxDrop / 1000).ToString('0.0', $inv))
 }
 
-function Update-WBal($State, [double]$Power, [double]$Cp, [datetime]$Now) {
+# Fatigue (durability.ps1): $Cp is already the tired CP, $Factor shrinks the W' you can hold
+# (the percentage stays against your fresh W', so a tired rider no longer refills to 100 %),
+# and $Recovery slows the refill after deep efforts.
+function Update-WBal($State, [double]$Power, [double]$Cp, [datetime]$Now, [double]$Factor = 1, [double]$Recovery = 1) {
+    $State.dt = 0.0
     if ($null -ne $State.last) {
         $dt = ($Now - $State.last).TotalSeconds
         # A long gap means the data stopped: do not invent effort or recovery.
         if ($dt -gt 0 -and $dt -le 2) {
+            $State.dt = $dt
             $before = [double]$State.value
+            $cap = [double]$State.wPrime * $Factor
             if ($Power -gt $Cp) {
                 $State.value -= ($Power - $Cp) * $dt
+                # Past empty while still riding: kept to tell if the fatigue made the model too pessimistic.
+                if ($State.value -lt 0) { $State.overshoot = [double]$State.overshoot - $State.value }
             } else {
-                $State.value += ($Cp - $Power) * ($State.wPrime - $State.value) / $State.wPrime * $dt
+                $State.value += $Recovery * ($Cp - $Power) * ($cap - $State.value) / $cap * $dt
             }
             # Explicit double: with an integer 0, PowerShell picks the Int32 overload and rounds.
-            $State.value = [math]::Max([double]0, [math]::Min([double]$State.wPrime, [double]$State.value))
+            $State.value = [math]::Max([double]0, [math]::Min($cap, [double]$State.value))
             $State.lowest = [math]::Min([double]$State.lowest, [double]$State.value)
             # An effort starts above CP and ends after 10 s below it, so a short easing does not split it.
             if ($Power -gt $Cp) {
-                if ($null -eq $State.effortStart) { $State.effortStart = $before }
+                if ($null -eq $State.effortStart) { $State.effortStart = $before; $State.overshoot = 0.0 }
                 $State.belowCp = 0.0
             } elseif ($null -ne $State.effortStart) {
                 $State.belowCp += $dt
-                if ($State.belowCp -ge 10) { $State.effortStart = $null }
+                if ($State.belowCp -ge 10) {
+                    if ($State.drop -ge 0.5 * $State.wPrime) { $State.deepEfforts = [int]$State.deepEfforts + 1 }
+                    if ($Factor -lt 0.98 -and $State.overshoot -gt 0.05 * $State.wPrime) { $State.tooPessimistic = $true }
+                    $State.overshoot = 0.0
+                    $State.effortStart = $null
+                }
             }
             if ($null -ne $State.effortStart) {
                 $State.drop = [math]::Max([double]0, [double]$State.effortStart - [double]$State.value)
