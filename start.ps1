@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 $folder = $PSScriptRoot
 $overlay = Join-Path $folder 'overlay.ps1'
 $repository = 'TPVwidgethud/tpv-widget'
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
 
 if (-not (Test-Path -LiteralPath $overlay)) {
     [void][Windows.Forms.MessageBox]::Show("overlay.ps1 was not found in:`n$folder`n`nUnzip the whole TPVWidget folder before starting it.", 'TPV Widget', 'OK', 'Error')
@@ -45,9 +45,8 @@ function Update-Widget {
     $notes = ([string]$release.body).Trim()
     if ($notes.Length -gt 600) { $notes = $notes.Substring(0, 600) + '...' }
     $question = "A new version of TPV Widget is available: $latest (you have $current).`n`n$notes`n`nInstall it now? Your settings are kept.`nNo = start the version you have."
-    $owner = New-Object Windows.Forms.Form -Property @{ TopMost = $true; ShowInTaskbar = $false; StartPosition = 'CenterScreen'; Size = [Drawing.Size]::new(1, 1); Opacity = 0 }
-    $owner.Show()
-    try { $answer = [Windows.Forms.MessageBox]::Show($owner, $question, 'TPV Widget update', 'YesNo', 'Question') } finally { $owner.Dispose() }
+    # A standard top-most dialog of its own, so that it never hides behind another window.
+    $answer = [Windows.Forms.MessageBox]::Show($question, 'TPV Widget update', 'YesNo', 'Question', 'Button1', 'DefaultDesktopOnly')
     if ($answer -ne 'Yes') { Write-UpdateLog "version $latest offered, not installed"; return }
     $work = Join-Path ([IO.Path]::GetTempPath()) ('TPVWidget-update-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
