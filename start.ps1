@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 $folder = $PSScriptRoot
 $overlay = Join-Path $folder 'overlay.ps1'
 $repository = 'TPVwidgethud/tpv-widget'
-Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
 if (-not (Test-Path -LiteralPath $overlay)) {
     [void][Windows.Forms.MessageBox]::Show("overlay.ps1 was not found in:`n$folder`n`nUnzip the whole TPVWidget folder before starting it.", 'TPV Widget', 'OK', 'Error')
@@ -14,6 +14,32 @@ if (-not (Test-Path -LiteralPath $overlay)) {
 # Files unzipped from a download are marked as coming from the internet; this folder is trusted from now on.
 Get-ChildItem -LiteralPath $folder -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
 
+# Asks before installing: a small window of its own, on top and active, that returns $true only on "Install".
+function Request-UpdateConsent([string]$Text) {
+    $form = New-Object Windows.Forms.Form
+    $form.Text = 'TPV Widget update'
+    $form.FormBorderStyle = 'FixedDialog'; $form.MaximizeBox = $false; $form.MinimizeBox = $false
+    $form.StartPosition = 'CenterScreen'; $form.TopMost = $true; $form.ShowInTaskbar = $true
+    $form.Font = New-Object Drawing.Font('Segoe UI', 10)
+    $form.AutoSize = $true; $form.AutoSizeMode = 'GrowAndShrink'; $form.Padding = New-Object Windows.Forms.Padding(16)
+    $layout = New-Object Windows.Forms.FlowLayoutPanel
+    $layout.FlowDirection = 'TopDown'; $layout.AutoSize = $true; $layout.WrapContents = $false
+    $layout.Location = New-Object Drawing.Point(18, 16)
+    $label = New-Object Windows.Forms.Label
+    $label.Text = $Text; $label.AutoSize = $true; $label.MaximumSize = New-Object Drawing.Size(460, 0); $label.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 14)
+    $buttons = New-Object Windows.Forms.FlowLayoutPanel
+    $buttons.FlowDirection = 'RightToLeft'; $buttons.AutoSize = $true; $buttons.Anchor = 'Right'
+    $install = New-Object Windows.Forms.Button
+    $install.Text = 'Install'; $install.Name = 'InstallButton'; $install.AutoSize = $true; $install.DialogResult = 'Yes'
+    $later = New-Object Windows.Forms.Button
+    $later.Text = 'Not now'; $later.Name = 'LaterButton'; $later.AutoSize = $true; $later.DialogResult = 'No'
+    $buttons.Controls.AddRange(@($later, $install))
+    $layout.Controls.AddRange(@($label, $buttons))
+    $form.Controls.Add($layout)
+    $form.AcceptButton = $install; $form.CancelButton = $later
+    $form.Add_Shown({ $form.Activate(); $form.BringToFront() })
+    try { return ($form.ShowDialog() -eq 'Yes') } finally { $form.Dispose() }
+}
 function Write-UpdateLog([string]$Text) {
     try { Add-Content -LiteralPath (Join-Path $folder 'update.log') -Value "$(Get-Date -Format s) $Text" -Encoding UTF8 } catch { }
 }
@@ -44,10 +70,8 @@ function Update-Widget {
     # Offered, never forced: nothing is downloaded without a yes.
     $notes = ([string]$release.body).Trim()
     if ($notes.Length -gt 600) { $notes = $notes.Substring(0, 600) + '...' }
-    $question = "A new version of TPV Widget is available: $latest (you have $current).`n`n$notes`n`nInstall it now? Your settings are kept.`nNo = start the version you have."
-    # A standard top-most dialog of its own, so that it never hides behind another window.
-    $answer = [Windows.Forms.MessageBox]::Show($question, 'TPV Widget update', 'YesNo', 'Question', 'Button1', 'DefaultDesktopOnly')
-    if ($answer -ne 'Yes') { Write-UpdateLog "version $latest offered, not installed"; return }
+    $question = "A new version of TPV Widget is available: $latest (you have $current).`n`n$notes`n`nInstall it now? Your settings are kept.`nNot now = start the version you have."
+    if (-not (Request-UpdateConsent $question)) { Write-UpdateLog "version $latest offered, not installed"; return }
     $work = Join-Path ([IO.Path]::GetTempPath()) ('TPVWidget-update-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
     try {
