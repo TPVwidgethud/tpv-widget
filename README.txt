@@ -1,4 +1,4 @@
-﻿TPV Widget 2.0 - overlay for TrainingPeaks Virtual
+﻿TPV Widget 2.1 - overlay for TrainingPeaks Virtual
 ===================================================
 English | Svenska | Français
 
@@ -22,7 +22,9 @@ Remove: close the widget (☰ > Close widget) and delete the folder.
 
 Use
 - Start the widget preferably before TPV.
-- ☰ button at the top right of the widget: position, size, displayed items, layout, settings.
+- ☰ button at the top right of the widget: tabs DISPLAY (profiles and displayed items), LAYOUT,
+  RIDER (FTP, W', CP: click a value to type it) and OTHER. A profile (Race, Climb, Training, Stream,
+  Minimal) keeps its own displayed items, layout and position; changes are saved in the selected one.
 - Edit layout: drag blocks, - / + badge on the block under the mouse = size of that block only
   (50 to 300 %, click the % = back to 100 %), double-click = full row, right-click a gauge or graph = two on one line,
   braking banner = drag to place it, - / + buttons on it = size, edges = resize. Esc when done.
@@ -76,7 +78,9 @@ Borttagning: stäng widgeten (☰ > Close widget) och radera mappen.
 
 Användning
 - Starta helst widgeten före TPV.
-- Knappen ☰ uppe till höger på widgeten: position, storlek, visade delar, layout, inställningar.
+- Knappen ☰ uppe till höger på widgeten: flikarna DISPLAY (profiler och visade delar), LAYOUT,
+  RIDER (FTP, W', CP: klicka på ett värde för att skriva det) och OTHER. En profil (Race, Climb, Training,
+  Stream, Minimal) har egna visade delar, layout och position; ändringar sparas i den valda profilen.
 - Edit layout: dra blocken, märket - / + på blocket under musen = storlek på just det blocket
   (50 till 300 %, klick på % = tillbaka till 100 %), dubbelklick = hel rad, högerklick på en mätare eller graf = två på samma
   rad, bromsbanner = dra för att placera den, knapparna - / + på den = storlek, kanterna = ändra
@@ -135,7 +139,9 @@ Suppression : quittez le widget (☰ > Close widget) et supprimez le dossier.
 
 Utilisation
 - Lancez le widget de préférence avant TPV.
-- Bouton ☰ en haut à droite du widget : position, taille, éléments affichés, mise en page, réglages.
+- Bouton ☰ en haut à droite du widget : onglets DISPLAY (profils et éléments affichés), LAYOUT,
+  RIDER (FTP, W', CP : cliquez sur une valeur pour la taper) et OTHER. Un profil (Race, Climb, Training,
+  Stream, Minimal) garde ses éléments affichés, sa disposition et sa position ; les changements vont dans le profil choisi.
 - Edit layout : glisser les blocs, badge - / + sur le bloc sous la souris = taille de ce bloc seul
   (50 à 300 %, clic sur le % = retour à 100 %), double-clic = ligne entière, clic droit sur une jauge ou un
   graphique = deux sur la même ligne, bandeau de freinage = glisser pour le placer, boutons - / +

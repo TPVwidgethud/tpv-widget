@@ -1304,7 +1304,7 @@ public sealed class TpvGauge {
     [xml]$menuXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Widget menu panel" AutomationProperties.Name="Widget menu panel" Width="236" SizeToContent="Height"
+        Title="Widget menu panel" AutomationProperties.Name="Widget menu panel" Width="262" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
         FontFamily="Segoe UI" Foreground="#F4F6FB">
@@ -1351,6 +1351,20 @@ public sealed class TpvGauge {
         </Setter.Value>
       </Setter>
     </Style>
+    <Style x:Key="ValueBox" TargetType="TextBox">
+      <Setter Property="Foreground" Value="#F4F6FB"/>
+      <Setter Property="Background" Value="#1A2E6E"/>
+      <Setter Property="BorderBrush" Value="#4F76F5"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CaretBrush" Value="#FFFFFF"/>
+      <Setter Property="SelectionBrush" Value="#5C80FF"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="3,2"/>
+      <Setter Property="Cursor" Value="IBeam"/>
+    </Style>
   </Window.Resources>
   <Border Background="#F50B1A52" BorderBrush="#4F76F5" BorderThickness="1.5" CornerRadius="10" Padding="10">
     <DockPanel>
@@ -1359,8 +1373,31 @@ public sealed class TpvGauge {
       <TextBlock Text="SETTINGS" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="2,0,0,0"/>
       <Button x:Name="CloseMenuButton" AutomationProperties.Name="Close settings" ToolTip="Close" Content="&#x2715;" FontFamily="Segoe UI Symbol" FontSize="14" Width="34" Height="28" HorizontalAlignment="Right"/>
     </Grid>
+    <UniformGrid x:Name="TabGrid" DockPanel.Dock="Top" Rows="1" Columns="4" Height="30" Margin="0,0,0,8">
+      <Button Tag="display" AutomationProperties.Name="Tab display" Content="DISPLAY" FontSize="10.5"/>
+      <Button Tag="layout" AutomationProperties.Name="Tab layout" Content="LAYOUT" FontSize="10.5"/>
+      <Button Tag="rider" AutomationProperties.Name="Tab rider" Content="RIDER" FontSize="10.5"/>
+      <Button Tag="other" AutomationProperties.Name="Tab other" Content="OTHER" FontSize="10.5"/>
+    </UniformGrid>
     <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
     <StackPanel>
+      <StackPanel x:Name="TabDisplay">
+      <DockPanel Margin="2,0,0,4">
+        <TextBlock Text="PROFILE" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+      </DockPanel>
+      <UniformGrid x:Name="ProfileGrid" Rows="2" Columns="3" Height="58" Margin="0,0,0,4" ToolTip="Each profile keeps its own displayed items, layout, parts, block sizes, position and background. Changes are saved in the selected profile.">
+        <Button Tag="Race" AutomationProperties.Name="Profile Race" Content="Race" FontSize="11"/>
+        <Button Tag="Climb" AutomationProperties.Name="Profile Climb" Content="Climb" FontSize="11"/>
+        <Button Tag="Training" AutomationProperties.Name="Profile Training" Content="Training" FontSize="11"/>
+        <Button Tag="Stream" AutomationProperties.Name="Profile Stream" Content="Stream" FontSize="11"/>
+        <Button Tag="Minimal" AutomationProperties.Name="Profile Minimal" Content="Minimal" FontSize="11"/>
+        <Button Tag="" AutomationProperties.Name="No profile" Content="Off" FontSize="11"/>
+      </UniformGrid>
+      <TextBlock x:Name="ProfileHint" Text="" FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,0,0,8"/>
+      <TextBlock Text="DISPLAY" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
+      <StackPanel x:Name="DisplayList" Margin="0,0,0,8"/>
+      </StackPanel>
+      <StackPanel x:Name="TabLayout" Visibility="Collapsed">
       <TextBlock Text="POSITION" FontSize="12" FontWeight="Bold" Margin="2,0,0,5"/>
       <UniformGrid x:Name="PresetGrid" Rows="3" Columns="3" Height="114" Margin="0,0,0,7">
         <Button Tag="TL" AutomationProperties.Name="Top left" Content="&#x2196;" FontFamily="Segoe UI Symbol" FontSize="16"/>
@@ -1387,38 +1424,50 @@ public sealed class TpvGauge {
         <Button Tag="2" AutomationProperties.Name="Two parts" Content="2"/>
         <Button Tag="3" AutomationProperties.Name="Three parts" Content="3"/>
       </UniformGrid>
-      <TextBlock Text="DISPLAY" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
-      <StackPanel x:Name="DisplayList" Margin="0,0,0,8"/>
+      <TextBlock Text="BACKGROUND" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
+      <Grid x:Name="BgRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="Click or hold">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
+        <RepeatButton x:Name="BgLessButton" AutomationProperties.Name="More transparent" Content="&#x2212;"/>
+        <TextBlock x:Name="BgLabel" Grid.Column="1" Text="90 %" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <RepeatButton x:Name="BgMoreButton" Grid.Column="2" AutomationProperties.Name="More opaque" Content="+"/>
+      </Grid>
+      <Button x:Name="EditButton" AutomationProperties.Name="Edit layout" Content="Edit layout" Height="27"/>
+      <Button x:Name="ResetLayoutButton" AutomationProperties.Name="Reset layout" Content="Reset layout" Height="27"/>
+      <TextBlock Text="Edit layout: drag blocks between parts, double-click a block for a full row, right-click a gauge or graph to put two on one line, drag the braking banner to place it (- / + on it = size), edges resize, title bars move and snap. Esc = done." FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,6,0,0"/>
+      </StackPanel>
+      <StackPanel x:Name="TabRider" Visibility="Collapsed">
       <DockPanel Margin="2,0,0,4">
         <Button x:Name="FtpAutoButton" DockPanel.Dock="Right" Height="22" Padding="10,0" AutomationProperties.Name="FTP from TPV" ToolTip="Back to the value from TPV" Content="AUTO" FontSize="11"/>
         <TextBlock Text="FTP" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
       </DockPanel>
-      <Grid x:Name="FtpRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the FTP TPV uses. - / + forces a value (1 W steps). Click or hold">
+      <Grid x:Name="FtpRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the FTP TPV uses. - / + forces a value (1 W steps). Type a value in the middle, or click or hold - / +">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
         <RepeatButton x:Name="FtpLessButton" AutomationProperties.Name="Lower FTP" Content="&#x2212;"/>
-        <TextBlock x:Name="FtpLabel" Grid.Column="1" Text="AUTO" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBox x:Name="FtpLabel" Grid.Column="1" Text="AUTO" Style="{StaticResource ValueBox}" ToolTip="Click and type a value, Enter to keep it, Esc to cancel"/>
         <RepeatButton x:Name="FtpMoreButton" Grid.Column="2" AutomationProperties.Name="Raise FTP" Content="+"/>
       </Grid>
       <DockPanel Margin="2,0,0,4">
         <Button x:Name="WPrimeAutoButton" DockPanel.Dock="Right" Height="22" Padding="10,0" AutomationProperties.Name="W' from TPV" ToolTip="Back to the value from TPV" Content="AUTO" FontSize="11"/>
         <TextBlock Text="W' (kJ)" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
       </DockPanel>
-      <Grid x:Name="WPrimeRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the W' TPV estimated. - / + forces a value (0.1 kJ steps). Click or hold">
+      <Grid x:Name="WPrimeRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the W' TPV estimated. - / + forces a value (0.1 kJ steps). Type a value in the middle, or click or hold - / +">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
         <RepeatButton x:Name="WPrimeLessButton" AutomationProperties.Name="Lower W'" Content="&#x2212;"/>
-        <TextBlock x:Name="WPrimeLabel" Grid.Column="1" Text="AUTO" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBox x:Name="WPrimeLabel" Grid.Column="1" Text="AUTO" Style="{StaticResource ValueBox}" ToolTip="Click and type a value, Enter to keep it, Esc to cancel"/>
         <RepeatButton x:Name="WPrimeMoreButton" Grid.Column="2" AutomationProperties.Name="Raise W'" Content="+"/>
       </Grid>
       <DockPanel Margin="2,0,0,4">
         <Button x:Name="CpAutoButton" DockPanel.Dock="Right" Height="22" Padding="10,0" AutomationProperties.Name="CP from TPV" ToolTip="Back to the value from TPV" Content="AUTO" FontSize="11"/>
         <TextBlock Text="CP (W'BAL)" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
       </DockPanel>
-      <Grid x:Name="CpRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the CP TPV estimated, used for W'bal. - / + forces a value (1 W steps). Click or hold">
+      <Grid x:Name="CpRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="AUTO = the CP TPV estimated, used for W'bal. - / + forces a value (1 W steps). Type a value in the middle, or click or hold - / +">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
         <RepeatButton x:Name="CpLessButton" AutomationProperties.Name="Lower CP" Content="&#x2212;"/>
-        <TextBlock x:Name="CpLabel" Grid.Column="1" Text="AUTO" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBox x:Name="CpLabel" Grid.Column="1" Text="AUTO" Style="{StaticResource ValueBox}" ToolTip="Click and type a value, Enter to keep it, Esc to cancel"/>
         <RepeatButton x:Name="CpMoreButton" Grid.Column="2" AutomationProperties.Name="Raise CP" Content="+"/>
       </Grid>
+      <Button x:Name="AllAutoButton" AutomationProperties.Name="All values from TPV" Content="All AUTO (values from TPV)" Height="27" Margin="2,0,2,10"/>
+      <TextBlock Text="Click a value to type it (Enter = keep, Esc = cancel). The game loses the keyboard while you type: click back in the game afterwards." FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,0,0,8"/>
       <TextBlock Text="W'BAL TIME REFRESH" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
       <Grid x:Name="EmptyRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="How often the time left on W'bal changes. Click or hold">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
@@ -1426,6 +1475,8 @@ public sealed class TpvGauge {
         <TextBlock x:Name="EmptyLabel" Grid.Column="1" Text="1 s" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
         <RepeatButton x:Name="EmptyMoreButton" Grid.Column="2" AutomationProperties.Name="Refresh time left slower" Content="+"/>
       </Grid>
+      </StackPanel>
+      <StackPanel x:Name="TabOther" Visibility="Collapsed">
       <TextBlock Text="BANNER SIZE" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
       <Grid x:Name="BannerRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="Edit layout: drag the banner to place it">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
@@ -1454,19 +1505,10 @@ public sealed class TpvGauge {
         <TextBlock x:Name="VamRefreshLabel" Grid.Column="1" Text="Live" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
         <RepeatButton x:Name="VamFasterButton" Grid.Column="2" AutomationProperties.Name="VAM refresh slower" Content="+"/>
       </Grid>
-      <TextBlock Text="BACKGROUND" FontSize="12" FontWeight="Bold" Margin="2,0,0,4"/>
-      <Grid x:Name="BgRow" Height="30" Margin="0,0,0,8" Background="Transparent" ToolTip="Click or hold">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
-        <RepeatButton x:Name="BgLessButton" AutomationProperties.Name="More transparent" Content="&#x2212;"/>
-        <TextBlock x:Name="BgLabel" Grid.Column="1" Text="90 %" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        <RepeatButton x:Name="BgMoreButton" Grid.Column="2" AutomationProperties.Name="More opaque" Content="+"/>
-      </Grid>
-      <Button x:Name="EditButton" AutomationProperties.Name="Edit layout" Content="Edit layout" Height="27"/>
-      <Button x:Name="ResetLayoutButton" AutomationProperties.Name="Reset layout" Content="Reset layout" Height="27"/>
       <Button x:Name="ToggleButton" AutomationProperties.Name="Toggle widget" Content="Hide widget" Height="27"/>
       <Button x:Name="ResetButton" AutomationProperties.Name="Reset score" Content="Reset score + W'bal" Height="27"/>
       <Button x:Name="QuitButton" AutomationProperties.Name="Close widget" Content="Close widget" Height="27"/>
-      <TextBlock Text="Edit layout: drag blocks between parts, double-click a block for a full row, right-click a gauge or graph to put two on one line, drag the braking banner to place it (- / + on it = size), edges resize, title bars move and snap. Esc = done." FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,6,0,0"/>
+      </StackPanel>
     </StackPanel>
     </ScrollViewer>
     </DockPanel>
@@ -2082,12 +2124,12 @@ public sealed class TpvGauge {
     function Update-ForceLabels {
         $inv = [Globalization.CultureInfo]::InvariantCulture
         $ftpLabelText = $(if ($st.ftpForced -gt 0) { "$([int]$st.ftpForced) W SET" } else { "AUTO $([int][math]::Round((Get-AutoFtp))) W" })
-        if ($forceFtpLabel.Text -ne $ftpLabelText) { $forceFtpLabel.Text = $ftpLabelText }
+        if (-not $forceFtpLabel.IsKeyboardFocused -and $forceFtpLabel.Text -ne $ftpLabelText) { $forceFtpLabel.Text = $ftpLabelText }
         $autoW = $(if ($wProfile) { ([double]$wProfile.wPrime / 1000).ToString('0.0', $inv) + ' kJ' } else { 'none yet' })
         $wLabelText = $(if ($st.wForced -gt 0) { ([double]$st.wForced / 1000).ToString('0.0', $inv) + ' kJ SET' } else { "AUTO $autoW" })
-        if ($forceWLabel.Text -ne $wLabelText) { $forceWLabel.Text = $wLabelText }
+        if (-not $forceWLabel.IsKeyboardFocused -and $forceWLabel.Text -ne $wLabelText) { $forceWLabel.Text = $wLabelText }
         $cpLabelText = $(if ($st.cpForced -gt 0) { "$([int]$st.cpForced) W SET" } elseif ($wProfile) { "AUTO $([int][double]$wProfile.cp) W" } else { 'AUTO = FTP' })
-        if ($forceCpLabel.Text -ne $cpLabelText) { $forceCpLabel.Text = $cpLabelText }
+        if (-not $forceCpLabel.IsKeyboardFocused -and $forceCpLabel.Text -ne $cpLabelText) { $forceCpLabel.Text = $cpLabelText }
         $forceCpLabel.Foreground = $(if ($st.cpForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
         $forceFtpLabel.Foreground = $(if ($st.ftpForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
         $forceWLabel.Foreground = $(if ($st.wForced -gt 0) { $wbalOrange } else { [Windows.Media.Brushes]::White })
@@ -2115,6 +2157,148 @@ public sealed class TpvGauge {
         Update-ForceLabels
     }
 
+    # ---- tabs ----
+    $st.menuTab = 'display'
+    function Set-MenuTab([string]$Name) {
+        if ($Name -notin 'display', 'layout', 'rider', 'other') { $Name = 'display' }
+        $st.menuTab = $Name
+        foreach ($pair in @(@('display', 'TabDisplay'), @('layout', 'TabLayout'), @('rider', 'TabRider'), @('other', 'TabOther'))) {
+            $menu.FindName($pair[1]).Visibility = $(if ($pair[0] -eq $Name) { 'Visible' } else { 'Collapsed' })
+        }
+        foreach ($button in $menu.FindName('TabGrid').Children) {
+            $on = ([string]$button.Tag -eq $Name)
+            $button.FontWeight = $(if ($on) { 'Bold' } else { 'Normal' })
+            $button.Foreground = $(if ($on) { $partActiveBrush } else { $moveBrush })
+        }
+    }
+
+    # ---- layout profiles: each keeps its displayed items, layout, parts, block sizes, position and background ----
+    $st.profiles = [ordered]@{}
+    $st.profile = ''
+    $st.applyingProfile = $false
+    function Get-LayoutSnapshot {
+        $extra = @()
+        foreach ($part in $parts) {
+            if ($part.id -eq 0) { continue }
+            if ($part.active) { $r = Get-WindowBounds $part.hwnd; $part.x = [int]$r.Left; $part.y = [int]$r.Top }
+            $extra += @{ x = $part.x; y = $part.y; width = $part.width; height = $part.height; order = @($part.panel.GetOrder()) }
+        }
+        $full = @(); $beside = @(); $grow = @()
+        foreach ($part in $parts) { $full += @($part.panel.GetFullKeys()); $beside += @($part.panel.GetBesideKeys()); $grow += @($part.panel.GetGrowList()) }
+        $display = @{}
+        foreach ($key in @($st.display.Keys)) { $display[$key] = [bool]$st.display[$key] }
+        $main = Get-WindowBounds $st.hwnd
+        return @{ display = $display; partCount = $st.partCount; extra = $extra; order = @($blocks.GetOrder()); fullRow = $full; besideRow = $beside; blockSize = $grow
+                  width = $parts[0].width; height = $parts[0].height; preset = $st.preset; x = [int]$main.Left; y = [int]$main.Top; bgOpacity = $st.bgOpacity }
+    }
+
+    function Use-LayoutProfile($Saved) {
+        $st.applyingProfile = $true
+        try {
+            foreach ($item in $displayItems) { $value = $Saved.display.($item.key); if ($null -ne $value) { $st.display[$item.key] = [bool]$value } }
+            foreach ($part in $parts) { if ($part.id -gt 0) { $part.panel.MoveAllTo($blocks) } }
+            $count = [math]::Max(1, [math]::Min(3, [int]$Saved.partCount))
+            $extras = @($Saved.extra)
+            for ($i = 1; $i -lt $parts.Count; $i++) {
+                $part = $parts[$i]
+                if ($i -lt $count) {
+                    $one = $(if ($i - 1 -lt $extras.Count) { $extras[$i - 1] } else { $null })
+                    if ($one) {
+                        if ($null -ne $one.x) { $part.x = [int]$one.x }
+                        if ($null -ne $one.y) { $part.y = [int]$one.y }
+                        if ($one.width) { $part.width = [double]$one.width }
+                        if ($one.height) { $part.height = [double]$one.height }
+                        foreach ($key in @($one.order)) { if ($key) { $blocks.MoveBlockTo([string]$key, $part.panel) } }
+                        $part.panel.SetOrder([string[]]@($one.order | Where-Object { $_ }))
+                    }
+                    if ($part.active) {
+                        Set-PartSize $part $part.width $part.height
+                        [void][TpvNative]::SetWindowPos($part.hwnd, [IntPtr](-1), [int]$part.x, [int]$part.y, 0, 0, 0x0011)
+                    } else { Show-Part $part }
+                } elseif ($part.active) {
+                    $part.active = $false
+                    $part.window.Hide()
+                }
+            }
+            $st.partCount = $count
+            if ($Saved.order) { $blocks.SetOrder([string[]]@($Saved.order)) }
+            foreach ($one in $parts) {
+                $one.panel.SetFullKeys([string[]]@($Saved.fullRow | Where-Object { $_ }))
+                $one.panel.SetBesideKeys([string[]]@($Saved.besideRow | Where-Object { $_ }))
+                $one.panel.SetGrowList([string[]]@($Saved.blockSize | Where-Object { $_ }))
+            }
+            if ($Saved.width -and $Saved.height) { Set-PartSize $parts[0] ([double]$Saved.width) ([double]$Saved.height) }
+            if ($null -ne $Saved.bgOpacity) { Set-BackgroundOpacity ([int]$Saved.bgOpacity) }
+            $st.preset = $(if ($Saved.preset) { [string]$Saved.preset } else { $null })
+            if (-not $st.preset -and $null -ne $Saved.x -and $null -ne $Saved.y) { Set-WidgetPosition ([int]$Saved.x) ([int]$Saved.y); Save-WidgetPosition }
+            foreach ($grid in $displayList.Children) {
+                if ($grid -isnot [Windows.Controls.Primitives.UniformGrid]) { continue }
+                foreach ($box in $grid.Children) { $box.IsChecked = [bool]$st.display[[string]$box.Tag] }
+            }
+            Update-PartButtons
+            Set-DisplayLayout
+            Update-SizeLabel
+        } finally { $st.applyingProfile = $false }
+    }
+
+    function Update-ProfileButtons {
+        foreach ($button in $menu.FindName('ProfileGrid').Children) {
+            $on = ([string]$button.Tag -eq [string]$st.profile)
+            $button.FontWeight = $(if ($on) { 'Bold' } else { 'Normal' })
+            $button.Foreground = $(if ($on) { $partActiveBrush } else { $moveBrush })
+        }
+        $menu.FindName('ProfileHint').Text = $(if ($st.profile) { "Profile $($st.profile): your changes are kept in it." } else { 'No profile: choose one to keep a layout for races, climbs, streams...' })
+    }
+
+    # The profile left keeps the layout as it is now; an empty profile starts from the current layout.
+    function Select-LayoutProfile([string]$Name) {
+        if ($st.profile -and $st.profile -ne $Name) { $st.profiles[$st.profile] = Get-LayoutSnapshot }
+        if ($Name -and $st.profiles.Contains($Name)) { Use-LayoutProfile $st.profiles[$Name] }
+        $st.profile = $Name
+        if ($Name -and -not $st.profiles.Contains($Name)) { $st.profiles[$Name] = Get-LayoutSnapshot }
+        Update-ProfileButtons
+        Save-WidgetSettings
+    }
+
+    # ---- typed rider values ----
+    function Enable-MenuTyping {
+        if (-not $st.menuHwnd -or $st.menuTyping) { return }
+        $st.menuTyping = $true
+        $style = [int64][TpvNative]::GetWindowLongPtr($st.menuHwnd, -20) -band (-bnot [int64]0x8000000)
+        [void][TpvNative]::SetWindowLongPtr($st.menuHwnd, -20, [IntPtr]$style)
+        [void]$menu.Activate()
+    }
+    function Disable-MenuTyping {
+        if (-not $st.menuTyping) { return }
+        $st.menuTyping = $false
+        Set-ToolWindow $st.menuHwnd
+    }
+    function Get-RiderValueText([string]$Which) {
+        $inv = [Globalization.CultureInfo]::InvariantCulture
+        switch ($Which) {
+            'ftp' { return ([int][math]::Round((Get-OwnFtp))).ToString($inv) }
+            'cp' { return ([int][math]::Round((Get-CpUsed))).ToString($inv) }
+            'w' { $j = $(if ($st.wbal) { [double]$st.wbal.wPrime } elseif ($wProfile) { [double]$wProfile.wPrime } else { 20000.0 }); return ($j / 1000).ToString('0.0', $inv) }
+        }
+    }
+    # Accepts "390", "390 W", "31", "31.5", "31,5 kJ" or "31000": out of range or unreadable keeps the value as it was.
+    function Set-RiderValue([string]$Which, [string]$Text) {
+        $clean = ($Text -replace '[^\d.,]', '').Replace(',', '.')
+        $value = 0.0
+        if ([double]::TryParse($clean, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
+            switch ($Which) {
+                'ftp' { if ($value -ge 50 -and $value -le 1000) { $st.ftpForced = [math]::Round($value); Show-BrakeScore } }
+                'cp' { if ($value -ge 50 -and $value -le 1000) { $st.cpForced = [math]::Round($value) } }
+                'w' {
+                    $joules = $(if ($value -lt 100) { $value * 1000 } else { $value })
+                    if ($joules -ge 5000 -and $joules -le 60000) { $st.wForced = [math]::Round($joules / 100) * 100; Set-WPrimeUsed $st.wForced }
+                }
+            }
+        }
+        Update-ForceLabels
+        Save-WidgetSettings
+    }
+
     function Read-WidgetSettings {
         # Shown at first start; a setting saved later always wins.
         $firstStart = 'wbalgauge', 'power30', 'wkg', 'vam', 'draft', 'brake', 'coach', 'climb', 'routechart', 'alerts', 'jokes', 'wbaltalk', 'music', 'musictitle', 'winddial', 'attack', 'groups', 'pull', 'team'
@@ -2138,6 +2322,9 @@ public sealed class TpvGauge {
             if ($null -ne $saved.routeSpan -and [double]$saved.routeSpan -ge 500 -and [double]$saved.routeSpan -le 20000) { $st.routeSpan = [double]$saved.routeSpan }
             if ($null -ne $saved.bgOpacity -and [int]$saved.bgOpacity -ge 30 -and [int]$saved.bgOpacity -le 100) { $st.bgOpacity = [int]$saved.bgOpacity }
             if ($saved.preset) { $st.preset = [string]$saved.preset }
+            if ($saved.profiles) { foreach ($property in $saved.profiles.PSObject.Properties) { $st.profiles[$property.Name] = $property.Value } }
+            if ($saved.profile) { $st.profile = [string]$saved.profile }
+            if ($saved.menuTab) { $st.menuTab = [string]$saved.menuTab }
             if ($saved.scale) { $st.scale = [double]$saved.scale }
             if ($saved.width) { $parts[0].width = [double]$saved.width }
             if ($saved.height) { $parts[0].height = [double]$saved.height }
@@ -2213,6 +2400,8 @@ public sealed class TpvGauge {
     }
 
     function Save-WidgetSettings {
+        if ($st.applyingProfile) { return }
+        if ($st.profile) { $st.profiles[$st.profile] = Get-LayoutSnapshot }
         $extra = @()
         foreach ($part in $parts) {
             if ($part.id -eq 0) { continue }
@@ -2227,7 +2416,7 @@ public sealed class TpvGauge {
         $besideRow = @()
         $blockSize = @()
         foreach ($part in $parts) { $fullRow += @($part.panel.GetFullKeys()); $besideRow += @($part.panel.GetBesideKeys()); $blockSize += @($part.panel.GetGrowList()) }
-        $json = @{ blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 4
+        $json = @{ profiles = $st.profiles; profile = $st.profile; menuTab = $st.menuTab; blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 8
         Write-FileSafely $settingsPath $json
     }
 
@@ -2390,6 +2579,39 @@ public sealed class TpvGauge {
     $menu.FindName('WPrimeMoreButton').add_Click({ Step-ForcedWPrime 1 })
     $menu.FindName('WPrimeAutoButton').add_Click({ $st.wForced = 0.0; Set-WPrimeUsed 0; Update-ForceLabels; Save-WidgetSettings })
     $menu.FindName('CpLessButton').add_Click({ Step-ForcedCp -1 })
+    $menu.FindName('AllAutoButton').add_Click({
+        $st.ftpForced = 0.0; $st.wForced = 0.0; $st.cpForced = 0.0
+        Set-WPrimeUsed 0
+        Update-ForceLabels; Show-BrakeScore; Save-WidgetSettings
+    })
+    foreach ($typed in @(@('FtpLabel', 'ftp'), @('WPrimeLabel', 'w'), @('CpLabel', 'cp'))) {
+        $box = $menu.FindName($typed[0])
+        $box.Tag = $typed[1]
+        # The menu never takes the keyboard from the game, except while a value is being typed.
+        $box.add_PreviewMouseLeftButtonDown({
+            if ($args[0].IsKeyboardFocused) { return }
+            Enable-MenuTyping
+            [void]$args[0].Focus()
+            [void][Windows.Input.Keyboard]::Focus($args[0])
+            $args[1].Handled = $true
+        })
+        $box.add_GotKeyboardFocus({ $args[0].Text = Get-RiderValueText ([string]$args[0].Tag); $args[0].SelectAll() })
+        $box.add_PreviewKeyDown({
+            if ($args[1].Key -eq 'Return') { $st.riderCommit = $true; [void][Windows.Input.Keyboard]::ClearFocus(); $args[1].Handled = $true }
+            elseif ($args[1].Key -eq 'Escape') { $st.riderCommit = $false; [void][Windows.Input.Keyboard]::ClearFocus(); $args[1].Handled = $true }
+        })
+        $box.add_LostKeyboardFocus({
+            $commit = $st.riderCommit -ne $false
+            $st.riderCommit = $null
+            if ($commit) { Set-RiderValue ([string]$args[0].Tag) $args[0].Text } else { Update-ForceLabels }
+            Disable-MenuTyping
+        })
+    }
+    $menu.add_IsVisibleChanged({ if (-not $menu.IsVisible) { [void][Windows.Input.Keyboard]::ClearFocus(); Disable-MenuTyping } })
+    foreach ($tabButton in $menu.FindName('TabGrid').Children) { $tabButton.add_Click({ Set-MenuTab ([string]$args[0].Tag); Save-WidgetSettings }) }
+    foreach ($profileButton in $menu.FindName('ProfileGrid').Children) { $profileButton.add_Click({ Select-LayoutProfile ([string]$args[0].Tag) }) }
+    Set-MenuTab $st.menuTab
+    Update-ProfileButtons
     $menu.FindName('CpMoreButton').add_Click({ Step-ForcedCp 1 })
     $menu.FindName('CpAutoButton').add_Click({ $st.cpForced = 0.0; Update-ForceLabels; Save-WidgetSettings })
     foreach ($forceStep in 'FtpLessButton', 'FtpMoreButton', 'WPrimeLessButton', 'WPrimeMoreButton', 'CpLessButton', 'CpMoreButton') { $menu.FindName($forceStep).add_PreviewMouseLeftButtonUp({ Save-WidgetSettings }) }
@@ -2458,6 +2680,7 @@ public sealed class TpvGauge {
         $box.Tag = $item.key
         $box.IsChecked = [bool]$st.display[$item.key]
         $onToggle = {
+            if ($st.applyingProfile) { return }
             $st.display[[string]$args[0].Tag] = [bool]$args[0].IsChecked
             Set-DisplayLayout
             Save-WidgetSettings
