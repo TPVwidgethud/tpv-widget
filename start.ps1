@@ -1,11 +1,11 @@
 ﻿# Starts TPV Widget from this folder. Nothing is installed: settings and learned data stay in this folder.
-# Before starting, looks for a newer version published on GitHub (TPVwidgethud/tpv-widget) and installs it.
-# To turn the update check off, create an empty file named no-update.txt in this folder.
+# Before starting, looks for a newer version published on GitHub (TPVwidgethud/tpv-widget) and offers to install it.
+# To never be asked, create an empty file named no-update.txt in this folder.
 $ErrorActionPreference = 'Stop'
 $folder = $PSScriptRoot
 $overlay = Join-Path $folder 'overlay.ps1'
 $repository = 'TPVwidgethud/tpv-widget'
-Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
 if (-not (Test-Path -LiteralPath $overlay)) {
     [void][Windows.Forms.MessageBox]::Show("overlay.ps1 was not found in:`n$folder`n`nUnzip the whole TPVWidget folder before starting it.", 'TPV Widget', 'OK', 'Error')
@@ -41,6 +41,14 @@ function Update-Widget {
     $hashAsset = @($release.assets | Where-Object { $_.name -like 'TPVWidget-*.zip.sha256' })[0]
     if (-not $zipAsset -or -not $hashAsset) { Write-UpdateLog "version $latest has no zip or no checksum: not installed"; return }
     foreach ($asset in $zipAsset, $hashAsset) { if (-not ([string]$asset.browser_download_url).StartsWith($prefix)) { Write-UpdateLog 'unexpected download address: not installed'; return } }
+    # Offered, never forced: nothing is downloaded without a yes.
+    $notes = ([string]$release.body).Trim()
+    if ($notes.Length -gt 600) { $notes = $notes.Substring(0, 600) + '...' }
+    $question = "A new version of TPV Widget is available: $latest (you have $current).`n`n$notes`n`nInstall it now? Your settings are kept.`nNo = start the version you have."
+    $owner = New-Object Windows.Forms.Form -Property @{ TopMost = $true; ShowInTaskbar = $false; StartPosition = 'CenterScreen'; Size = [Drawing.Size]::new(1, 1); Opacity = 0 }
+    $owner.Show()
+    try { $answer = [Windows.Forms.MessageBox]::Show($owner, $question, 'TPV Widget update', 'YesNo', 'Question') } finally { $owner.Dispose() }
+    if ($answer -ne 'Yes') { Write-UpdateLog "version $latest offered, not installed"; return }
     $work = Join-Path ([IO.Path]::GetTempPath()) ('TPVWidget-update-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
     try {

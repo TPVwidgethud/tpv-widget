@@ -15,9 +15,9 @@ Nothing to install
 3. Double-click "Start TPV Widget.cmd". A black window opens for a second, then the widget appears.
    For a shortcut: right-click "Start TPV Widget.cmd" > Send to > Desktop.
 Settings, learned corners and learned route profiles stay in this folder.
-Update: automatic. At each start, "Start TPV Widget.cmd" looks for a newer version on GitHub
-(github.com/TPVwidgethud/tpv-widget), installs it and keeps your settings. Without internet the
-widget simply starts. To turn it off: create an empty file named no-update.txt in this folder.
+Update: offered at start. When a newer version is published on GitHub (github.com/TPVwidgethud/tpv-widget),
+"Start TPV Widget.cmd" asks whether to install it: Yes installs it and keeps your settings, No starts
+the version you have. To never be asked: create an empty file named no-update.txt in this folder.
 Remove: close the widget (☰ > Close widget) and delete the folder.
 
 Use
@@ -69,9 +69,9 @@ Inget att installera
 3. Dubbelklicka på "Start TPV Widget.cmd". Ett svart fönster öppnas en sekund, sedan visas widgeten.
    För en genväg: högerklicka på "Start TPV Widget.cmd" > Skicka till > Skrivbord.
 Inställningar, inlärda kurvor och inlärda vägprofiler sparas i den här mappen.
-Uppdatering: automatisk. Vid varje start letar "Start TPV Widget.cmd" efter en nyare version på GitHub
-(github.com/TPVwidgethud/tpv-widget), installerar den och behåller dina inställningar. Utan internet
-startar widgeten ändå. Stänga av: skapa en tom fil som heter no-update.txt i den här mappen.
+Uppdatering: erbjuds vid start. När en nyare version finns på GitHub (github.com/TPVwidgethud/tpv-widget)
+frågar "Start TPV Widget.cmd" om den ska installeras: Ja installerar den och behåller dina inställningar,
+Nej startar den version du har. För att aldrig bli tillfrågad: skapa en tom fil som heter no-update.txt här.
 Borttagning: stäng widgeten (☰ > Close widget) och radera mappen.
 
 Användning
@@ -127,9 +127,10 @@ Rien à installer
    widget apparaît.
    Pour un raccourci : clic droit sur « Start TPV Widget.cmd » > Envoyer vers > Bureau.
 Réglages, virages appris et profils de route appris restent dans ce dossier.
-Mise à jour : automatique. À chaque lancement, « Start TPV Widget.cmd » cherche une version plus récente
-sur GitHub (github.com/TPVwidgethud/tpv-widget), l'installe et garde vos réglages. Sans internet, le
-widget démarre normalement. Pour la couper : créez un fichier vide nommé no-update.txt dans ce dossier.
+Mise à jour : proposée au lancement. Quand une version plus récente est publiée sur GitHub
+(github.com/TPVwidgethud/tpv-widget), « Start TPV Widget.cmd » demande s'il faut l'installer : Oui l'installe
+et garde vos réglages, Non démarre la version actuelle. Pour ne plus être sollicité : créez un fichier vide
+nommé no-update.txt dans ce dossier.
 Suppression : quittez le widget (☰ > Close widget) et supprimez le dossier.
 
 Utilisation
