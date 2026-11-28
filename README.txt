@@ -1,4 +1,4 @@
-﻿TPV Widget 2.3 - overlay for TrainingPeaks Virtual
+﻿TPV Widget 2.4 - overlay for TrainingPeaks Virtual
 ===================================================
 English | Svenska | Français
 
@@ -25,6 +25,8 @@ Use
 - ☰ button at the top right of the widget: tabs DISPLAY (profiles and displayed items), LAYOUT,
   RIDER (FTP, W', CP: click a value to type it) and OTHER. A profile (Race, Climb, Training, Stream,
   Minimal) keeps its own displayed items, layout and position; changes are saved in the selected one.
+- Moving: drag ☰ to move part 1, and the ✥ grip that appears above the corner of part 2 or 3 when the mouse is over it, no
+  menu needed. ☰ > LAYOUT > Lock positions hides the grips so nothing moves by accident.
 - Edit layout: drag blocks, - / + badge on the block under the mouse = size of that block only
   (50 to 300 %, click the % = back to 100 %), double-click = full row, right-click a gauge or graph = two on one line,
   braking banner = drag to place it, - / + buttons on it = size, edges = resize. Esc when done.
@@ -92,6 +94,8 @@ Användning
 - Knappen ☰ uppe till höger på widgeten: flikarna DISPLAY (profiler och visade delar), LAYOUT,
   RIDER (FTP, W', CP: klicka på ett värde för att skriva det) och OTHER. En profil (Race, Climb, Training,
   Stream, Minimal) har egna visade delar, layout och position; ändringar sparas i den valda profilen.
+- Flytta: dra ☰ för att flytta del 1, och greppet ✥ som visas ovanför hörnet på del 2 eller 3 när musen är över den, för att flytta
+  den delen, utan meny. ☰ > LAYOUT > Lock positions döljer greppen så att inget flyttas av misstag.
 - Edit layout: dra blocken, märket - / + på blocket under musen = storlek på just det blocket
   (50 till 300 %, klick på % = tillbaka till 100 %), dubbelklick = hel rad, högerklick på en mätare eller graf = två på samma
   rad, bromsbanner = dra för att placera den, knapparna - / + på den = storlek, kanterna = ändra
@@ -165,6 +169,9 @@ Utilisation
 - Bouton ☰ en haut à droite du widget : onglets DISPLAY (profils et éléments affichés), LAYOUT,
   RIDER (FTP, W', CP : cliquez sur une valeur pour la taper) et OTHER. Un profil (Race, Climb, Training,
   Stream, Minimal) garde ses éléments affichés, sa disposition et sa position ; les changements vont dans le profil choisi.
+- Déplacer : glissez ☰ pour déplacer la partie 1, et la poignée ✥ qui apparaît au-dessus du coin de la partie 2 ou 3 au survol de la souris,
+  pour déplacer cette partie, sans passer par le menu. ☰ > LAYOUT > Lock positions masque les poignées
+  pour que rien ne bouge par erreur.
 - Edit layout : glisser les blocs, badge - / + sur le bloc sous la souris = taille de ce bloc seul
   (50 à 300 %, clic sur le % = retour à 100 %), double-clic = ligne entière, clic droit sur une jauge ou un
   graphique = deux sur la même ligne, bandeau de freinage = glisser pour le placer, boutons - / +

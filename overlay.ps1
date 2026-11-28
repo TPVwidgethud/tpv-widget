@@ -1491,6 +1491,7 @@ public sealed class TpvGauge {
         <RepeatButton x:Name="BgMoreButton" Grid.Column="2" AutomationProperties.Name="More opaque" Content="+"/>
       </Grid>
       <Button x:Name="EditButton" AutomationProperties.Name="Edit layout" Content="Edit layout" Height="27"/>
+      <Button x:Name="LockButton" AutomationProperties.Name="Lock positions" ToolTip="Unlocked: drag the menu button or a part's grip to move it. Locked: nothing moves by accident" Content="Lock positions" Height="27"/>
       <Button x:Name="ResetLayoutButton" AutomationProperties.Name="Reset layout" Content="Reset layout" Height="27"/>
       <TextBlock Text="Edit layout: drag blocks between parts, double-click a block for a full row, right-click a gauge or graph to put two on one line, drag the braking banner to place it (- / + on it = size), edges resize, title bars move and snap. Esc = done." FontSize="10" Foreground="#9DBBFF" TextWrapping="Wrap" Margin="2,6,0,0"/>
       </StackPanel>
@@ -2435,6 +2436,7 @@ public sealed class TpvGauge {
             if ($saved.profiles) { foreach ($property in $saved.profiles.PSObject.Properties) { $st.profiles[$property.Name] = $property.Value } }
             if ($saved.profile) { $st.profile = [string]$saved.profile }
             if ($saved.menuTab) { $st.menuTab = [string]$saved.menuTab }
+            if ($null -ne $saved.partsLocked) { $st.partsLocked = [bool]$saved.partsLocked }
             if ($saved.scale) { $st.scale = [double]$saved.scale }
             if ($saved.width) { $parts[0].width = [double]$saved.width }
             if ($saved.height) { $parts[0].height = [double]$saved.height }
@@ -2526,7 +2528,7 @@ public sealed class TpvGauge {
         $besideRow = @()
         $blockSize = @()
         foreach ($part in $parts) { $fullRow += @($part.panel.GetFullKeys()); $besideRow += @($part.panel.GetBesideKeys()); $blockSize += @($part.panel.GetGrowList()) }
-        $json = @{ profiles = $st.profiles; profile = $st.profile; menuTab = $st.menuTab; blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; durForced = $st.durForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 8
+        $json = @{ profiles = $st.profiles; profile = $st.profile; menuTab = $st.menuTab; partsLocked = [bool]$st.partsLocked; blockSize = $blockSize; ftpForced = $st.ftpForced; wForced = $st.wForced; cpForced = $st.cpForced; durForced = $st.durForced; emptyRefresh = $st.emptyRefresh; alertX = $st.alertX; alertCenterY = $st.alertY; alertScale = $st.alertScale; routeSpan = $st.routeSpan; bgOpacity = $st.bgOpacity; vamRefresh = $st.vamRefresh; fullRow = $fullRow; besideRow = $besideRow; display = $st.display; preset = $st.preset; width = $parts[0].width; height = $parts[0].height; order = @($blocks.GetOrder()); partCount = $st.partCount; extra = $extra } | ConvertTo-Json -Depth 8
         Write-FileSafely $settingsPath $json
     }
 
@@ -2580,7 +2582,7 @@ public sealed class TpvGauge {
         $st.drag = @{ startX = $c.X; startY = $c.Y; windowX = $r.Left; windowY = $r.Top; moved = $false }
     })
     $handleButton.add_PreviewMouseMove({
-        if ($st.drag -and $args[1].LeftButton -eq 'Pressed') {
+        if ($st.drag -and $args[1].LeftButton -eq 'Pressed' -and -not $st.partsLocked) {
             $c = New-Object TpvNative+POINT
             [void][TpvNative]::GetCursorPos([ref]$c)
             $dx = $c.X - $st.drag.startX
@@ -2664,14 +2666,142 @@ public sealed class TpvGauge {
     foreach ($id in 1..2) {
         $partWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $partXaml))
         $partWindow.Title = "Widget part $($id + 1)"
-        $partWindow.FindName('BarText').Text = "PART $($id + 1)  |  drag  |  double-click = full row  |  right-click gauge/graph = 2 per line"
+        $partWindow.FindName('BarText').Text = "PART $($id + 1)  |  double-click = full row  |  right-click gauge/graph = 2 per line"
         $partPanel = New-Object TpvBlockPanel
         [void]$partWindow.FindName('PartHost').Children.Add($partPanel)
         $partHwnd = (New-Object Windows.Interop.WindowInteropHelper($partWindow)).EnsureHandle()
         Set-ClickThrough $true $partHwnd
         $parts += @{ id = $id; window = $partWindow; root = $partWindow.FindName('Root'); panel = $partPanel; bar = $partWindow.FindName('Bar'); hwnd = $partHwnd; active = $false; x = $null; y = $null; width = $null; height = $null; minW = 160; minH = 90; chromeW = 13; chromeH = 13; top = 26 }
     }
+
+    # ---- grips: parts 2 and 3 move by dragging their own small button, without opening the menu ----
+    [xml]$gripXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Part grip" Width="24" Height="24"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize">
+  <Button x:Name="GripButton" Content="&#x2725;" FontFamily="Segoe UI Symbol" FontSize="14" Foreground="#F4F6FB" Cursor="SizeAll">
+    <Button.Template>
+      <ControlTemplate TargetType="Button">
+        <Border x:Name="Bg" Background="#B33F66F5" CornerRadius="5">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="#5C80FF"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate>
+    </Button.Template>
+  </Button>
+</Window>
+"@
+    foreach ($part in $parts) {
+        if ($part.id -eq 0) { continue }
+        $gripWindow = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $gripXaml))
+        $gripWindow.Title = "Part $($part.id + 1) grip"
+        $gripButton = $gripWindow.FindName('GripButton')
+        $gripButton.Tag = $part.id
+        $gripButton.ToolTip = "Drag: move part $($part.id + 1)"
+        [Windows.Automation.AutomationProperties]::SetName($gripButton, "Move part $($part.id + 1)")
+        $part.grip = $gripWindow
+        $part.gripHwnd = (New-Object Windows.Interop.WindowInteropHelper($gripWindow)).EnsureHandle()
+        Set-ToolWindow $part.gripHwnd
+        $part.gripAt = ''
+        $gripButton.add_PreviewMouseLeftButtonDown({
+            $c = New-Object TpvNative+POINT
+            [void][TpvNative]::GetCursorPos([ref]$c)
+            Start-PartDrag ([int]$args[0].Tag) $c.X $c.Y
+            [void]$args[0].CaptureMouse()
+            $args[1].Handled = $true
+        })
+        $gripButton.add_PreviewMouseMove({
+            if ($st.partDrag -and $args[1].LeftButton -eq 'Pressed') {
+                $c = New-Object TpvNative+POINT
+                [void][TpvNative]::GetCursorPos([ref]$c)
+                Move-PartDrag $c.X $c.Y
+            }
+        })
+        $gripButton.add_PreviewMouseLeftButtonUp({
+            $args[0].ReleaseMouseCapture()
+            Stop-PartDrag
+            $args[1].Handled = $true
+        })
+    }
+
+    function Start-PartDrag([int]$Id, [int]$X, [int]$Y) {
+        $part = $parts[$Id]
+        if (-not $part.active) { return }
+        $r = Get-WindowBounds $part.hwnd
+        $st.partDrag = @{ part = $part; startX = $X; startY = $Y; left = [int]$r.Left; top = [int]$r.Top; moved = $false }
+    }
+
+    function Move-PartDrag([int]$X, [int]$Y) {
+        $d = $st.partDrag
+        if (-not $d) { return }
+        $dx = $X - $d.startX; $dy = $Y - $d.startY
+        if (-not $d.moved -and [math]::Abs($dx) -le 2 -and [math]::Abs($dy) -le 2) { return }
+        $d.moved = $true
+        [void][TpvNative]::SetWindowPos($d.part.hwnd, [IntPtr](-1), ($d.left + $dx), ($d.top + $dy), 0, 0, 0x0011)
+        Update-PartGrips
+    }
+
+    function Stop-PartDrag {
+        $d = $st.partDrag
+        $st.partDrag = $null
+        if (-not $d -or -not $d.moved) { return }
+        Set-PartsOnScreen
+        Update-PartGrips
+        Save-WidgetSettings
+    }
+
+    # Each grip sits at the top right corner of its part and only shows while the mouse is over that part
+    # (the parts let clicks through, so the cursor position is checked instead), or over the grip itself.
+    function Update-PartGrips {
+        $c = New-Object TpvNative+POINT
+        [void][TpvNative]::GetCursorPos([ref]$c)
+        $now = Get-Date
+        foreach ($part in $parts) {
+            if ($part.id -eq 0 -or -not $part.grip) { continue }
+            if (-not $part.active -or $st.partsLocked) {
+                if ($part.grip.IsVisible) { $part.grip.Hide() }
+                $part.gripAt = ''
+                continue
+            }
+            $r = Get-WindowBounds $part.hwnd
+            # Just above the corner, so it covers nothing; inside it when the part touches the top of the screen.
+            $gy = $r.Top - 26
+            if ($gy -lt [Windows.Forms.Screen]::FromHandle($part.hwnd).Bounds.Top) { $gy = $r.Top + 3 }
+            $gx = $r.Right - 26
+            $overPart = $c.X -ge $r.Left -and $c.X -lt $r.Right -and $c.Y -ge $r.Top -and $c.Y -lt $r.Bottom
+            $overGrip = $c.X -ge $gx - 6 -and $c.X -lt $gx + 30 -and $c.Y -ge $gy - 6 -and $c.Y -lt $gy + 30
+            if ($overPart -or $overGrip -or ($st.partDrag -and $st.partDrag.part.id -eq $part.id)) { $part.gripSeen = $now }
+            # Stays a moment after the mouse leaves, so it can be reached from the part.
+            $show = $part.gripSeen -and ($now - $part.gripSeen).TotalSeconds -lt 1.0
+            if (-not $show) {
+                if ($part.grip.IsVisible) { $part.grip.Hide() }
+                continue
+            }
+            if (-not $part.grip.IsVisible) { $part.grip.Show(); $part.gripAt = '' }
+            $at = "$gx,$gy"
+            if ($at -ne $part.gripAt) {
+                $part.gripAt = $at
+                [void][TpvNative]::SetWindowPos($part.gripHwnd, [IntPtr](-1), $gx, $gy, 0, 0, 0x0011)
+            }
+        }
+    }
+    $st.partDrag = $null   # no part being dragged
+    $st.partsLocked = $false
+    $lockButton = $menu.FindName('LockButton')
+    function Update-LockButton {
+        $lockButton.Content = $(if ($st.partsLocked) { 'Locked: click to unlock' } else { 'Lock positions' })
+        $lockButton.Foreground = $(if ($st.partsLocked) { $wbalOrange } else { $moveBrush })
+        $handleButton.ToolTip = $(if ($st.partsLocked) { 'Click: menu (positions locked)' } else { 'Click: menu | Drag: move' })
+        $handleButton.Cursor = $(if ($st.partsLocked) { [Windows.Input.Cursors]::Hand } else { [Windows.Input.Cursors]::SizeAll })
+    }
+    $lockButton.add_Click({ $st.partsLocked = -not $st.partsLocked; Update-LockButton; Update-PartGrips; Save-WidgetSettings })
+    Update-LockButton
     Read-WidgetSettings
+    Update-LockButton
     Update-VamRefreshButtons
     Set-BackgroundOpacity $st.bgOpacity
     Set-RouteSpan $st.routeSpan
@@ -3040,6 +3170,8 @@ public sealed class TpvGauge {
         if (Test-Hotkey 0x70) { Invoke-Music 'previous' }
         if (Test-Hotkey 0x71) { Invoke-Music 'toggle' }
         if (Test-Hotkey 0x72) { Invoke-Music 'next' }
+        if ($st.tick % 2 -eq 0 -and -not $st.partDrag) { Update-PartGrips }
+        if ($st.tick % 40 -eq 7) { foreach ($part in $parts) { if ($part.gripHwnd -and $part.active) { [void][TpvNative]::SetWindowPos($part.gripHwnd, [IntPtr](-1), 0, 0, 0, 0, 0x0013) } } }
         if ($st.display['music']) {
             Update-MusicHitTest
             if ($st.tick % 10 -eq 5 -and -not $st.hidden) { Update-Music }
